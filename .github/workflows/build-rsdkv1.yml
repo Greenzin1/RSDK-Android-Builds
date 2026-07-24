@@ -48,6 +48,20 @@ jobs:
               file(GLOB VORBIS_LIBS "${DEPS}/lib/libvorbis.a")
               file(GLOB VORBISFILE_LIBS "${DEPS}/lib/libvorbisfile.a")
               target_link_libraries(RetroEngine ${SDL2_LIBS} ${OGG_LIBS} ${VORBIS_LIBS} ${VORBISFILE_LIBS})
+              target_link_libraries(RetroEngine
+                  "-framework AVFoundation"
+                  "-framework AudioToolbox"
+                  "-framework CoreAudio"
+                  "-framework CoreBluetooth"
+                  "-framework CoreGraphics"
+                  "-framework CoreMotion"
+                  "-framework Foundation"
+                  "-framework GameController"
+                  "-framework Metal"
+                  "-framework OpenGLES"
+                  "-framework QuartzCore"
+                  "-framework UIKit"
+              )
           else()
               set(COMPILE_OGG TRUE)
               set(COMPILE_VORBIS TRUE)
