@@ -11,6 +11,7 @@ GitHub Actions workflows for building Retro Engine SDK decompilations as native 
 | `build-rsdkv3.yml` | RSDKv3 | Sonic CD (2011) | 🔧 |
 | `build-rsdkv4.yml` | RSDKv4 | Sonic 1 & 2 (2013) | 🔧 |
 | `build-rsdkv5.yml` | RSDKv5 | Sonic Mania | 🔧 |
+| `build-liveexec32.yml` | RSDKLegacy | Sega Genesis emulators (Sonic 1, Spinball) | 🔧 |
 
 ## Fork History
 
@@ -47,6 +48,14 @@ O Sonic Mania de 2017 e o jogo mais famoso feito com o Retro Engine. O CMakeList
 O nosso workflow cria um CMakeLists.txt proprio pra iOS que usa SDL2, linka as frameworks do iOS, e usa os source files do engine diretamente.
 
 Sonic Mania (2017) is the most famous game made with the Retro Engine. The original CMakeLists.txt is Android-only (uses games-controller, game-activity, etc from Android Jetpack). The WamWooWam fork (https://github.com/WamWooWam/RSDKv5-Decompilation) appeared in 2024 with iOS support, got popular because nothing existed for v5 in 2023, the app was on AltStore etc. But it's already outdated after the official RSDKModding repo's 1.1.1 + U version from 2024.
+
+### RSDKLegacy (liveexec32)
+
+O RSDKLegacy usa o liveexec32 (baseado no Dynarmic) pra rodar binarios Mach-O armv6/v7 no iOS arm64. O projeto original e o Greenzin1/Liveexec32-build, que usa Dynarmic como tradutor dinamico de ARMv7 pra ARM64, com GuestFrameworks completos (UIKit, Foundation, QuartzCore, OpenGLES, etc).
+
+RSDKLegacy uses liveexec32 (based on Dynarmic) to run Mach-O armv6/v7 binaries on iOS arm64. The original project is Greenzin1/Liveexec32-build, using Dynarmic as the dynamic translator from ARMv7 to ARM64, with complete GuestFrameworks (UIKit, Foundation, QuartzCore, OpenGLES, etc).
+
+Os IPAs de teste sao emuladores da Sega of America: Sonic 1 (2009, armv6) e Sonic Spinball (2012, armv7), que continham CPUs M68000 + Z80 + VDP emulados.
 
 ## Usage
 
