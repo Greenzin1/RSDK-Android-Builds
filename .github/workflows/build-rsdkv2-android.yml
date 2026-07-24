@@ -166,7 +166,11 @@ jobs:
           cp $DEPS_DIR/lib/libogg.a $DEPS_DIR/lib/${{ env.ABI }}/ 2>/dev/null || true
           cp $DEPS_DIR/lib/libvorbis.a $DEPS_DIR/lib/${{ env.ABI }}/ 2>/dev/null || true
           cp $DEPS_DIR/lib/libvorbisfile.a $DEPS_DIR/lib/${{ env.ABI }}/ 2>/dev/null || true
-          ls -la $DEPS_DIR/lib/${{ env.ABI }}/
+          mkdir -p $DEPS_DIR/include/ogg $DEPS_DIR/include/vorbis
+          cp /tmp/ogg/include/ogg/*.h $DEPS_DIR/include/ogg/ 2>/dev/null || true
+          cp /tmp/vorbis/include/vorbis/*.h $DEPS_DIR/include/vorbis/ 2>/dev/null || true
+          cp /tmp/vorbis/lib/*.h $DEPS_DIR/include/vorbis/ 2>/dev/null || true
+          ls -la $DEPS_DIR/lib/${{ env.ABI }}/ && ls $DEPS_DIR/include/vorbis/
 
       - name: Build RSDKv2
         working-directory: RSDKv2-Decompilation
