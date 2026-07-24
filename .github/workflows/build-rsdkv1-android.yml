@@ -320,6 +320,7 @@ jobs:
             /tmp/sdl2-java/org/libsdl/app/HIDDeviceUSB.java \
             /tmp/sdl2-java/org/libsdl/app/HIDDeviceBLESteamController.java \
             $APK/java/com/rsdkmodding/rsdkv1/RSDKv1.java 2>&1 || true
+          mkdir -p /tmp/d8out
           $BT/d8 --output /tmp/d8out $(find /tmp/classes -name "*.class") 2>&1
           cd /tmp && zip -j unsigned.apk d8out/classes.dex
 
