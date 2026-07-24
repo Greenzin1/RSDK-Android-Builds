@@ -230,7 +230,7 @@ jobs:
             -Iios-deps/include -Iios-deps/include/SDL2 \
             -Iios-deps/include/vorbis -Iios-deps/include/ogg \
             -Iios-deps/include/theora \
-            -Idependencies/all/theoraplay \
+            -Idependencies/mac -Idependencies/all/theoraplay \
             -DRETRO_USING_OPENGL=0 -DRETRO_USE_MOD_LOADER=0 -DRETRO_USE_ORIGINAL_CODE=0 \
             -c RSDKv3/ModAPI.cpp -o /tmp/ModAPI.o
           ar rcs dependencies/ios/libModAPI.a /tmp/ModAPI.o

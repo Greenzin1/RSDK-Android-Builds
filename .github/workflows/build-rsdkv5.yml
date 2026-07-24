@@ -124,10 +124,10 @@ jobs:
           # Create platform compatibility header for iOS
           cat > RSDKv5/ios_compat.h << 'COMPAT'
           #ifndef IOS_COMPAT_H
+          #define IOS_COMPAT_H
           #ifndef _WIN32
-          #include <climits>
           #ifndef MAX_PATH
-          #define MAX_PATH PATH_MAX
+          #define MAX_PATH 260
           #endif
           typedef void* HINSTANCE;
           #endif
