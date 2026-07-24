@@ -113,6 +113,129 @@ jobs:
           mkdir -p RSDKv5-Decompilation/dependencies/RSDKv5/ios
           touch RSDKv5-Decompilation/dependencies/RSDKv5/ios/Data.rsdk
 
+      - name: Create iOS CMakeLists.txt (Android one won't work)
+        working-directory: RSDKv5-Decompilation
+        run: |
+          cat > CMakeLists.txt << 'CMAKE'
+          cmake_minimum_required(VERSION 3.14)
+          project(RSDKv5_iOS LANGUAGES C CXX)
+
+          set(CMAKE_CXX_STANDARD 17)
+          set(CMAKE_C_STANDARD 11)
+
+          set(DEPS_DIR ${CMAKE_SOURCE_DIR}/ios-deps)
+
+          add_library(libogg STATIC
+              dependencies/android/libogg/src/bitwise.c
+              dependencies/android/libogg/src/framing.c
+          )
+          target_include_directories(libogg PRIVATE dependencies/android/libogg/include)
+
+          add_library(libtheora STATIC
+              dependencies/android/libtheora/lib/analyze.c
+              dependencies/android/libtheora/lib/apiwrapper.c
+              dependencies/android/libtheora/lib/bitpack.c
+              dependencies/android/libtheora/lib/cpu.c
+              dependencies/android/libtheora/lib/decapiwrapper.c
+              dependencies/android/libtheora/lib/decinfo.c
+              dependencies/android/libtheora/lib/decode.c
+              dependencies/android/libtheora/lib/dequant.c
+              dependencies/android/libtheora/lib/encapiwrapper.c
+              dependencies/android/libtheora/lib/encfrag.c
+              dependencies/android/libtheora/lib/encinfo.c
+              dependencies/android/libtheora/lib/encode.c
+              dependencies/android/libtheora/lib/encoder_disabled.c
+              dependencies/android/libtheora/lib/enquant.c
+              dependencies/android/libtheora/lib/fdct.c
+              dependencies/android/libtheora/lib/fragment.c
+              dependencies/android/libtheora/lib/huffdec.c
+              dependencies/android/libtheora/lib/huffenc.c
+              dependencies/android/libtheora/lib/idct.c
+              dependencies/android/libtheora/lib/info.c
+              dependencies/android/libtheora/lib/internal.c
+              dependencies/android/libtheora/lib/mathops.c
+              dependencies/android/libtheora/lib/mcenc.c
+              dependencies/android/libtheora/lib/quant.c
+              dependencies/android/libtheora/lib/rate.c
+              dependencies/android/libtheora/lib/state.c
+              dependencies/android/libtheora/lib/tokenize.c
+          )
+          target_include_directories(libtheora PRIVATE dependencies/android/libogg/include dependencies/android/libtheora/include)
+
+          add_executable(RetroEngine
+              RSDKv5/main.cpp
+              RSDKv5/RSDK/Core/RetroEngine.cpp
+              RSDKv5/RSDK/Core/Math.cpp
+              RSDKv5/RSDK/Core/Reader.cpp
+              RSDKv5/RSDK/Core/Link.cpp
+              RSDKv5/RSDK/Core/ModAPI.cpp
+              RSDKv5/RSDK/Dev/Debug.cpp
+              RSDKv5/RSDK/Storage/Storage.cpp
+              RSDKv5/RSDK/Storage/Text.cpp
+              RSDKv5/RSDK/Graphics/Drawing.cpp
+              RSDKv5/RSDK/Graphics/Scene3D.cpp
+              RSDKv5/RSDK/Graphics/Animation.cpp
+              RSDKv5/RSDK/Graphics/Sprite.cpp
+              RSDKv5/RSDK/Graphics/Palette.cpp
+              RSDKv5/RSDK/Graphics/Video.cpp
+              RSDKv5/RSDK/Audio/Audio.cpp
+              RSDKv5/RSDK/Input/Input.cpp
+              RSDKv5/RSDK/Scene/Scene.cpp
+              RSDKv5/RSDK/Scene/Collision.cpp
+              RSDKv5/RSDK/Scene/Object.cpp
+              RSDKv5/RSDK/Scene/Objects/DefaultObject.cpp
+              RSDKv5/RSDK/Scene/Objects/DevOutput.cpp
+              RSDKv5/RSDK/User/Core/UserAchievements.cpp
+              RSDKv5/RSDK/User/Core/UserCore.cpp
+              RSDKv5/RSDK/User/Core/UserLeaderboards.cpp
+              RSDKv5/RSDK/User/Core/UserPresence.cpp
+              RSDKv5/RSDK/User/Core/UserStats.cpp
+              RSDKv5/RSDK/User/Core/UserStorage.cpp
+              dependencies/all/tinyxml2/tinyxml2.cpp
+              dependencies/all/iniparser/iniparser.cpp
+              dependencies/all/iniparser/dictionary.cpp
+              dependencies/all/miniz/miniz.c
+          )
+
+          target_include_directories(RetroEngine PRIVATE
+              RSDKv5/
+              ${DEPS_DIR}/include
+              ${DEPS_DIR}/include/SDL2
+              dependencies/android/libogg/include/
+              dependencies/android/libtheora/include/
+              dependencies/all/
+              dependencies/all/tinyxml2/
+              dependencies/all/iniparser/
+          )
+
+          target_compile_definitions(RetroEngine PRIVATE
+              RETRO_REVISION=3
+              RETRO_USE_MOD_LOADER=1
+              RETRO_USE_ORIGINAL_CODE=0
+              SDL_MAIN_HANDLED
+          )
+
+          target_compile_options(RetroEngine PRIVATE -fexceptions -frtti)
+
+          target_link_libraries(RetroEngine
+              libogg
+              libtheora
+              "-L${DEPS_DIR}/lib"
+              "-lSDL2"
+              "-framework UIKit"
+              "-framework Foundation"
+              "-framework Metal"
+              "-framework OpenGLES"
+              "-framework AudioToolbox"
+              "-framework CoreAudio"
+              "-framework CoreMotion"
+              "-framework QuartzCore"
+              "-framework GameController"
+              "-lz"
+          )
+          CMAKE
+          echo "Created iOS CMakeLists.txt"
+
       - name: Configure RSDKv5 (CMake)
         working-directory: RSDKv5-Decompilation
         run: |
@@ -123,10 +246,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_FIND_ROOT_PATH="${{ github.workspace }}/RSDKv5-Decompilation/ios-deps" \
             -DCMAKE_PREFIX_PATH="${{ github.workspace }}/RSDKv5-Decompilation/ios-deps" \
-            -DRETRO_REVISION=3 \
-            -DRETRO_MOD_LOADER=ON \
-            -DRETRO_DISABLE_PLUS=OFF \
-            -DGAME_INCLUDE_EDITOR=OFF
+            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=BOTH \
+            -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=BOTH
 
       - name: Build RSDKv5
         run: cmake --build RSDKv5-Decompilation/build -j$(sysctl -n hw.ncpu)
@@ -134,13 +255,13 @@ jobs:
       - name: Package IPA
         run: |
           mkdir -p Payload/RSDKv5.app
-          BINARY=$(find RSDKv5-Decompilation/build -name "RSDKv5" -type f ! -name "*.a" ! -name "*.dylib" | head -1)
+          BINARY=$(find RSDKv5-Decompilation/build -name "RetroEngine" -type f ! -name "*.a" ! -name "*.dylib" | head -1)
           if [ -z "$BINARY" ]; then
-            echo "ERROR: RSDKv5 binary not found"
+            echo "ERROR: RetroEngine binary not found"
             find RSDKv5-Decompilation/build -type f -executable
             exit 1
           fi
-          cp "$BINARY" Payload/RSDKv5.app/RSDKv5
+          cp "$BINARY" Payload/RSDKv5.app/RetroEngine
           cat > Payload/RSDKv5.app/Info.plist << 'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -148,7 +269,7 @@ jobs:
           <dict>
             <key>CFBundleDevelopmentRegion</key><string>en</string>
             <key>CFBundleDisplayName</key><string>Sonic Mania</string>
-            <key>CFBundleExecutable</key><string>RSDKv5</string>
+            <key>CFBundleExecutable</key><string>RetroEngine</string>
             <key>CFBundleIdentifier</key><string>com.rsdkmodding.rsdkv5</string>
             <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
             <key>CFBundleName</key><string>Sonic Mania</string>

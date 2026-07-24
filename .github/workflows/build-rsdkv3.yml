@@ -33,10 +33,51 @@ jobs:
           cd RSDKv3-Decompilation
           ln -sf RSDKv3 SonicCDDecomp
 
-      - name: Fix Theora include for iOS
+      - name: Fix cocoaHelpers for iOS (replace AppKit with Foundation)
         working-directory: RSDKv3-Decompilation
         run: |
-          sed -i '' 's|#include <theora/theoradec.h>|#include <theora/theoradec.h>|g' RSDKv3/RetroEngine.hpp || true
+          cat > dependencies/mac/cocoaHelpers.hpp << 'H'
+          #ifndef COCOAHELPERS_HPP
+          #define COCOAHELPERS_HPP
+          void getResourcesPath(char* buffer, int bufferSize);
+          const char *getDocumentsPath();
+          #endif
+          H
+          cat > dependencies/mac/cocoaHelpers.mm << 'M'
+          #ifdef __APPLE__
+          #import <Foundation/Foundation.h>
+          #include "cocoaHelpers.hpp"
+          #include <sys/stat.h>
+
+          const char *getDocumentsPath() {
+              static NSString *path = nil;
+              if (!path) {
+                  NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+                  path = [[paths firstObject] stringByAppendingString:@"/"];
+              }
+              return [path UTF8String];
+          }
+
+          void getResourcesPath(char* buffer, int bufferSize) {
+              @autoreleasepool {
+                  NSString *appFolder = [NSBundle.mainBundle.bundlePath stringByDeletingLastPathComponent];
+                  NSString *dataFile = [appFolder stringByAppendingString:@"/Data.rsdk"];
+                  NSString *dataFolder = [appFolder stringByAppendingString:@"/Data"];
+                  NSString *settingsFile = [appFolder stringByAppendingString:@"/settings.ini"];
+                  if([NSFileManager.defaultManager fileExistsAtPath:dataFile] ||
+                     [NSFileManager.defaultManager fileExistsAtPath:settingsFile] ||
+                     [NSFileManager.defaultManager fileExistsAtPath:dataFolder]){
+                      [appFolder getCString:buffer maxLength:bufferSize encoding:NSUTF8StringEncoding];
+                      return;
+                  }
+                  NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+                  NSString *documentsDir = [paths firstObject];
+                  [documentsDir getCString:buffer maxLength:bufferSize encoding:NSUTF8StringEncoding];
+              }
+          }
+          #endif
+          M
+          echo "Replaced cocoaHelpers with iOS-compatible version"
 
       - name: Build SDL2 for iOS
         run: |
@@ -137,7 +178,7 @@ jobs:
             LIBRARY_SEARCH_PATHS="$(pwd)/dependencies/ios $(pwd)/ios-deps/lib" \
             OTHER_LDFLAGS="-lModAPIStub -framework AVFoundation -framework AudioToolbox -framework CoreAudio -framework CoreBluetooth -framework CoreGraphics -framework CoreHaptics -framework CoreMotion -framework Foundation -framework GameController -framework Metal -framework OpenGLES -framework QuartzCore -framework UIKit" \
             HEADER_SEARCH_PATHS="$(pwd)/ios-deps/include $(pwd)/ios-deps/include/SDL2 $(pwd)/ios-deps/include/vorbis $(pwd)/ios-deps/include/ogg $(pwd)/ios-deps/include/theora $(pwd)/SonicCDDecomp $(pwd)/dependencies/all/theoraplay" \
-            GCC_PREPROCESSOR_DEFINITIONS="RETRO_USING_OPENGL=0 RETRO_USE_MOD_LOADER=1 $(inherited)" \
+            'GCC_PREPROCESSOR_DEFINITIONS=RETRO_USING_OPENGL=0 RETRO_USE_MOD_LOADER=1 $(inherited)' \
             OTHER_CFLAGS="-Wno-deprecated-declarations -Wno-nonportable-include-path"
 
       - name: Package IPA

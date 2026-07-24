@@ -91,18 +91,6 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
 
-      - name: Create NativeObjects.hpp (missing from repo)
-        working-directory: RSDKv4-Decompilation
-        run: |
-          cat > RSDKv4/NativeObjects.hpp << 'EOF'
-          #ifndef NATIVEOBJECTS_HPP
-          #define NATIVEOBJECTS_HPP
-          #include "PauseMenu.hpp"
-          #include "RetroGameLoop.hpp"
-          #endif
-          EOF
-          echo "Created NativeObjects.hpp"
-
       - name: Create Data.rsdk placeholder
         run: touch RSDKv4-Decompilation/dependencies/ios/Data.rsdk
 
@@ -117,8 +105,8 @@ jobs:
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             LIBRARY_SEARCH_PATHS="$(pwd)/dependencies/ios $(pwd)/ios-deps/lib" \
-            HEADER_SEARCH_PATHS="$(pwd)/ios-deps/include $(pwd)/ios-deps/include/SDL2 $(pwd)/ios-deps/include/vorbis $(pwd)/ios-deps/include/ogg $(pwd)/RSDKv4 $(pwd)/dependencies/all/theoraplay" \
-            GCC_PREPROCESSOR_DEFINITIONS="RETRO_USING_OPENGL=0 $(inherited)" \
+            HEADER_SEARCH_PATHS="$(pwd)/ios-deps/include $(pwd)/ios-deps/include/SDL2 $(pwd)/ios-deps/include/vorbis $(pwd)/ios-deps/include/ogg $(pwd)/RSDKv4 $(pwd)/RSDKv4/NativeObjects $(pwd)/dependencies/all/theoraplay" \
+            'GCC_PREPROCESSOR_DEFINITIONS=RETRO_USING_OPENGL=0 $(inherited)' \
             OTHER_CFLAGS="-Wno-deprecated-declarations" \
             OTHER_LDFLAGS="-framework AVFoundation -framework AudioToolbox -framework CoreAudio -framework CoreGraphics -framework CoreMotion -framework Foundation -framework Metal -framework OpenGLES -framework QuartzCore -framework UIKit"
 
