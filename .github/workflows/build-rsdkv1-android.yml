@@ -49,6 +49,10 @@ jobs:
               ${SDL2_DIR}/include/SDL2
           )
 
+          add_library(SDL2 STATIC IMPORTED)
+          set_target_properties(SDL2 PROPERTIES IMPORTED_LOCATION ${SDL2_DIR}/lib/${ANDROID_ABI}/libSDL2.a)
+          target_include_directories(SDL2 INTERFACE ${SDL2_DIR}/include ${SDL2_DIR}/include/SDL2)
+
           # Pre-built static libs from android-deps
           set(DEPS "${CMAKE_SOURCE_DIR}/android-deps")
           add_library(ogg STATIC IMPORTED)
@@ -63,7 +67,7 @@ jobs:
           set_target_properties(vorbisfile PROPERTIES IMPORTED_LOCATION ${DEPS}/lib/${ANDROID_ABI}/libvorbisfile.a)
           target_include_directories(vorbisfile INTERFACE ${DEPS}/include)
 
-          target_link_libraries(RetroEngine ogg vorbis vorbisfile log android)
+          target_link_libraries(RetroEngine SDL2 ogg vorbis vorbisfile log android)
           target_include_directories(RetroEngine PRIVATE ${DEPS}/include)
 
           # Disable bundled source compilation
