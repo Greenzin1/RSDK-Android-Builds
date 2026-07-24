@@ -130,7 +130,8 @@ jobs:
           mkdir -p $DEP/lib/${{ env.ABI }}
           cp libSDL2.a $DEP/lib/${{ env.ABI }}/
           cp -r include $DEP/
-          cp SDL_config.h $DEP/include/SDL2/
+          find . -name "SDL_config.h" -exec cp {} $DEP/include/SDL2/ \;
+          ls $DEP/include/SDL2/SDL_config.h
 
       - name: Build libogg + libvorbis for Android
         run: |
