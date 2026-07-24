@@ -1,0 +1,243 @@
+name: Build RSDKv1 Android (Retro-Sonic)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-rsdkv1-android.yml'
+  workflow_dispatch:
+
+env:
+  ANDROID_NDK_VERSION: "27.0.12077973"
+  ANDROID_API: 21
+  ANDROID_BUILD_TOOLS: "34.0.0"
+  ABI: arm64-v8a
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK + NDK
+        uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-licenses: true
+
+      - name: Install NDK
+        run: |
+          sdkmanager "ndk;${{ env.ANDROID_NDK_VERSION }}" "build-tools;${{ env.ANDROID_BUILD_TOOLS }}" "platforms;android-${{ env.ANDROID_API }}"
+          echo "NDK_PATH=$ANDROID_HOME/ndk/${{ env.ANDROID_NDK_VERSION }}" >> $GITHUB_ENV
+
+      - name: Clone RSDKv2 (base for RSDKv1)
+        run: git clone --recursive https://github.com/RSDKModding/RSDKv2-Decompilation.git
+
+      - name: Create Android.cmake
+        working-directory: RSDKv2-Decompilation
+        run: |
+          cat > platforms/Android.cmake << 'CMAKE'
+          add_library(RetroEngine SHARED ${RETRO_FILES})
+
+          set(SDL2_DIR "${CMAKE_SOURCE_DIR}/android-deps/SDL2")
+          target_include_directories(RetroEngine PRIVATE
+              ${SDL2_DIR}/include
+              ${SDL2_DIR}/include/SDL2
+          )
+          find_library(SDL2_LIB SDL2 PATHS ${SDL2_DIR}/lib/${ANDROID_ABI} NO_DEFAULT_PATH)
+          target_link_libraries(RetroEngine ${SDL2_LIB} log android)
+
+          set(OGG_DIR dependencies/${DEP_PATH}/libogg)
+          set(VORBIS_DIR dependencies/${DEP_PATH}/libvorbis)
+          target_include_directories(RetroEngine PRIVATE
+              ${OGG_DIR}/include
+              ${VORBIS_DIR}/include
+          )
+          set(COMPILE_OGG TRUE)
+          set(COMPILE_VORBIS TRUE)
+
+          target_compile_definitions(RetroEngine PRIVATE RETRO_PLATFORM=RETRO_ANDROID)
+
+          set_target_properties(RetroEngine PROPERTIES
+              CXX_STANDARD 17
+              CXX_STANDARD_REQUIRED ON
+              OUTPUT_NAME "RSDKv1"
+          )
+          CMAKE
+
+      - name: Create Android helpers
+        working-directory: RSDKv2-Decompilation
+        run: |
+          cat > RSDKv2/androidHelpers.hpp << 'H'
+          #ifndef ANDROIDHELPERS_HPP
+          #define ANDROIDHELPERS_HPP
+          const char *getDocumentsPath();
+          const char *getResourcesPath();
+          #endif
+          H
+          cat > RSDKv2/androidHelpers.cpp << 'C'
+          #include <string.h>
+          #include "RetroEngine.hpp"
+          static char docsPath[512] = {0};
+          static char resPath[512] = {0};
+          extern "C" void android_setPaths(const char* docs, const char* res) {
+              if (docs) strncpy(docsPath, docs, sizeof(docsPath) - 1);
+              if (res) strncpy(resPath, res, sizeof(resPath) - 1);
+          }
+          const char *getDocumentsPath() {
+              if (!docsPath[0]) return "/sdcard/Android/data/com.rsdkmodding.rsdkv1/files/";
+              return docsPath;
+          }
+          const char *getResourcesPath() {
+              if (!resPath[0]) return "/sdcard/Android/data/com.rsdkmodding.rsdkv1/files/";
+              return resPath;
+          }
+          C
+
+      - name: Patch RetroEngine.hpp for Android
+        working-directory: RSDKv2-Decompilation
+        run: |
+          sed -i 's|#elif RETRO_PLATFORM == RETRO_iOS|#elif RETRO_PLATFORM == RETRO_iOS\n#include "androidHelpers.hpp"\n#elif RETRO_PLATFORM == RETRO_ANDROID\n#include "androidHelpers.hpp"|' RSDKv2/RetroEngine.hpp
+          sed -i 's|#define RETRO_PLATFORM (RETRO_WIN) // Default|#if defined(__ANDROID__)\n#define RETRO_PLATFORM (RETRO_ANDROID)\n#else\n#define RETRO_PLATFORM (RETRO_WIN)\n#endif|' RSDKv2/RetroEngine.hpp
+          sed -i '/#elif RETRO_PLATFORM == RETRO_ANDROID/{n;s|#include <SDL2/SDL.h>|#include <SDL.h>|}' RSDKv2/RetroEngine.hpp
+
+      - name: Apply RSDKv1 data format changes
+        working-directory: RSDKv2-Decompilation
+        run: |
+          cat > /tmp/patch_rsdkv1.py << 'PYEOF'
+          path = 'RSDKv2/Scene.cpp'
+          with open(path) as f: content = f.read()
+          if 'cameraLag' not in content:
+              content = content.replace('int stageListPosition;', 'int stageListPosition;\n\nint cameraLag = 0;')
+          if 'LoadStageGFXFile' not in content:
+              gfx = '\nvoid LoadStageGFXFile(int listNo) {\n    int info = 0;\n    if (!OpenStageFile("16x16Tiles.gfx", listNo, &info))\n        return;\n    byte gfxWidth = 0;\n    byte gfxHeight = 0;\n    FileRead(&gfxWidth, 1);\n    FileRead(&gfxHeight, 1);\n    byte paletteSkip[765];\n    FileRead(paletteSkip, 765);\n    int x = 0, y = 0;\n    byte pixel = 0;\n    byte count = 0;\n    while (y < gfxHeight) {\n        FileRead(&pixel, 1);\n        if (pixel == 0xFF) {\n            FileRead(&pixel, 1);\n            FileRead(&count, 1);\n            for (int i = 0; i <= count; i++) {\n                x++;\n                if (x >= gfxWidth) { x = 0; y++; }\n            }\n        } else {\n            x++;\n            if (x >= gfxWidth) { x = 0; y++; }\n        }\n    }\n    CloseFile();\n}\n'
+              content = content.replace('int LoadStageFiles()', gfx + '\nint LoadStageFiles()')
+          if 'LoadStageChunks_RSDKv1' not in content:
+              chunk = '\nvoid LoadStageChunks_RSDKv1() {\n    byte entry[3];\n    for (int i = 0; i < 0x4000; ++i) {\n        if (FileRead(&entry, 3) == 0) break;\n        entry[0] -= (byte)((entry[0] >> 6) << 6);\n        tiles128x128.tileIndex[i] = entry[1] + (entry[0] << 8);\n        tiles128x128.gfxDataPos[i] = tiles128x128.tileIndex[i] << 8;\n        tiles128x128.direction[i]  = entry[2] >> 4;\n        tiles128x128.visualPlane[i] = (entry[2] >> 2) & 3;\n        tiles128x128.collisionFlag1[i] = entry[2] & 1;\n        tiles128x128.collisionFlag2[i] = (entry[2] >> 1) & 1;\n    }\n}\n'
+              content = content.replace('int LoadStageFiles()', chunk + '\nint LoadStageFiles()')
+          with open(path, 'w') as f: f.write(content)
+
+          path = 'RSDKv2/Script.cpp'
+          with open(path) as f: content = f.read()
+          if 'functionStack' not in content:
+              content = content.replace('int scriptData[0x40000];', 'int scriptData[0x40000];\n\nint functionStack[0x100];\nint functionStackPos = 0;')
+              with open(path, 'w') as f: f.write(content)
+          print('RSDKv1 patches applied')
+          PYEOF
+          python3 /tmp/patch_rsdkv1.py
+
+      - name: Build SDL2 for Android
+        run: |
+          git clone --depth 1 --branch release-2.30.0 https://github.com/libsdl-org/SDL.git /tmp/SDL2
+          cd /tmp/SDL2 && mkdir build-android && cd build-android
+          cmake .. \
+            -DCMAKE_TOOLCHAIN_FILE=$NDK_PATH/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=${{ env.ABI }} \
+            -DANDROID_PLATFORM=android-${{ env.ANDROID_API }} \
+            -DSDL_STATIC=ON -DSDL_SHARED=OFF -DSDL_TEST=OFF -DSDL_TESTS=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build . -j$(nproc)
+          DEP=${{ github.workspace }}/RSDKv2-Decompilation/android-deps/SDL2
+          mkdir -p $DEP/lib/${{ env.ABI }}
+          cp libSDL2.a $DEP/lib/${{ env.ABI }}/
+          cp -r include $DEP/
+
+      - name: Build libogg + libvorbis for Android
+        run: |
+          DEPS_DIR=${{ github.workspace }}/RSDKv2-Decompilation/android-deps
+          TC=$NDK_PATH/build/cmake/android.toolchain.cmake
+          git clone --depth 1 https://github.com/xiph/ogg.git /tmp/ogg
+          cd /tmp/ogg && mkdir build && cd build
+          cmake .. -DCMAKE_TOOLCHAIN_FILE=$TC -DANDROID_ABI=${{ env.ABI }} -DANDROID_PLATFORM=android-${{ env.ANDROID_API }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEPS_DIR
+          cmake --build . -j$(nproc) && cmake --install .
+          git clone --depth 1 https://github.com/xiph/vorbis.git /tmp/vorbis
+          cd /tmp/vorbis && mkdir build && cd build
+          cmake .. -DCMAKE_TOOLCHAIN_FILE=$TC -DANDROID_ABI=${{ env.ABI }} -DANDROID_PLATFORM=android-${{ env.ANDROID_API }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$DEPS_DIR -DCMAKE_INSTALL_PREFIX=$DEPS_DIR
+          cmake --build . -j$(nproc) && cmake --install .
+
+      - name: Build RSDKv1
+        working-directory: RSDKv2-Decompilation
+        run: |
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE=$NDK_PATH/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=${{ env.ABI }} \
+            -DANDROID_PLATFORM=android-${{ env.ANDROID_API }} \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DRETRO_MOD_LOADER=OFF -DFORCE_CASE_INSENSITIVE=ON
+          cmake --build build -j$(nproc)
+
+      - name: Download SDL2 Java sources
+        run: |
+          mkdir -p /tmp/sdl2-java/org/libsdl/app
+          find /tmp/SDL2/android -name "*.java" -exec cp {} /tmp/sdl2-java/org/libsdl/app/ \;
+          ls /tmp/sdl2-java/org/libsdl/app/
+
+      - name: Build APK
+        run: |
+          BT="$ANDROID_HOME/build-tools/${{ env.ANDROID_BUILD_TOOLS }}"
+          AJAR="$ANDROID_HOME/platforms/android-${{ env.ANDROID_API }}/android.jar"
+          WORK=${{ github.workspace }}/RSDKv2-Decompilation
+          APK=/tmp/apk
+          rm -rf $APK /tmp/unsigned.apk /tmp/aligned.apk $WORK/RSDKv1.apk
+          mkdir -p $APK/lib/${{ env.ABI }} $APK/res/values
+
+          SO=$(find $WORK/build -name "libRSDKv1.so" | head -1)
+          if [ -z "$SO" ]; then echo "ERROR: libRSDKv1.so not found"; find $WORK/build -name "*.so"; exit 1; fi
+          cp "$SO" $APK/lib/${{ env.ABI }}/
+
+          cat > $APK/AndroidManifest.xml << 'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.rsdkmodding.rsdkv1"
+              android:versionCode="1" android:versionName="1.0">
+              <uses-feature android:glEsVersion="0x00020000" />
+              <application android:label="Retro-Sonic" android:hasCode="true">
+                  <activity android:name="org.libsdl.app.SDLActivity"
+                      android:label="Retro-Sonic"
+                      android:configChanges="orientation|keyboardHidden|screenSize|screenLayout|smallestScreenSize"
+                      android:launchMode="singleInstance"
+                      android:screenOrientation="sensorLandscape"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                      <meta-data android:name="android.app.lib_name" android:value="RSDKv1" />
+                  </activity>
+              </application>
+          </manifest>
+          XML
+
+          cat > $APK/res/values/strings.xml << 'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources><string name="app_name">Retro-Sonic</string></resources>
+          XML
+
+          $BT/aapt2 compile --dir $APK/res -o /tmp/res.zip
+          $BT/aapt2 link -o /tmp/unsigned.apk -I $AJAR --manifest $APK/AndroidManifest.xml -R /tmp/res.zip --auto-add-overlay
+          cd $APK && zip -r /tmp/unsigned.apk lib/
+
+          mkdir -p /tmp/classes
+          javac -source 11 -target 11 -cp $AJAR -d /tmp/classes /tmp/sdl2-java/org/libsdl/app/*.java 2>&1
+          $BT/d8 --output /tmp/classes.dex /tmp/classes/org/libsdl/app/*.class 2>&1
+          cd /tmp && zip -j unsigned.apk classes.dex
+
+          $BT/zipalign -f 4 unsigned.apk aligned.apk
+          if [ ! -f /tmp/debug.keystore ]; then
+            keytool -genkeypair -v -keystore /tmp/debug.keystore -alias androiddebug -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          $BT/apksigner sign --ks /tmp/debug.keystore --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebug --out $WORK/RSDKv1.apk aligned.apk
+
+          echo "=== RSDKv1 APK ==="
+          du -h $WORK/RSDKv1.apk
+          $BT/aapt2 dump badging $WORK/RSDKv1.apk 2>&1 | head -5
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RSDKv1-Android-arm64
+          path: RSDKv2-Decompilation/RSDKv1.apk
+          retention-days: 30
