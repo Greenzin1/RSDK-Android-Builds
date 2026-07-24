@@ -135,6 +135,27 @@ jobs:
       - name: Create Data.rsdk placeholder
         run: touch RSDKv4-Decompilation/dependencies/ios/Data.rsdk
 
+      - name: Compile missing source files (Renderer, Networking, NativeObjects)
+        working-directory: RSDKv4-Decompilation
+        run: |
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          FLAGS="-arch ${{ env.ARCH }} -isysroot $SDK -miphoneos-version-min=${{ env.IOS_MIN_VERSION }} -std=gnu++14 -fexceptions -frtti -O2"
+          INCS="-I$(pwd)/RSDKv4 -I$(pwd)/RSDKv4/NativeObjects -Iios-deps/include -Iios-deps/include/SDL2 -Iios-deps/include/vorbis -Iios-deps/include/ogg"
+          DEFS="-DRETRO_USING_OPENGL=0 -DRETRO_USE_MOD_LOADER=0 -DRETRO_USE_ORIGINAL_CODE=0"
+          OUTDIR=/tmp/missing_objs
+          mkdir -p $OUTDIR
+
+          # Compile Renderer.cpp, Networking.cpp
+          for f in Renderer.cpp Networking.cpp; do
+            xcrun -sdk iphoneos clang++ $FLAGS $INCS $DEFS -c "RSDKv4/$f" -o "$OUTDIR/$(basename $f .cpp).o" 2>&1 | tail -5
+          done
+
+          # Compile all NativeObjects via All.cpp (unity build)
+          xcrun -sdk iphoneos clang++ $FLAGS $INCS $DEFS -DRSDKv4='"RSDKv4"' -include "$(pwd)/RSDKv4/RetroEngine.hpp" -c "RSDKv4/NativeObjects/All.cpp" -o "$OUTDIR/NativeObjects.o" 2>&1 | tail -5
+
+          ar rcs "$OUTDIR/libMissing.a" $OUTDIR/*.o
+          echo "Created libMissing.a with $(ar t $OUTDIR/libMissing.a | wc -l) objects"
+
       - name: Build RSDKv4
         working-directory: RSDKv4-Decompilation
         run: |
@@ -145,11 +166,11 @@ jobs:
             -arch ${{ env.ARCH }} \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
-            LIBRARY_SEARCH_PATHS="$(pwd)/dependencies/ios $(pwd)/ios-deps/lib $(pwd)/ios-deps" \
+            LIBRARY_SEARCH_PATHS="$(pwd)/dependencies/ios $(pwd)/ios-deps/lib $(pwd)/ios-deps /tmp/missing_objs" \
             HEADER_SEARCH_PATHS="$(pwd)/ios-deps/include $(pwd)/ios-deps/include/SDL2 $(pwd)/ios-deps/include/vorbis $(pwd)/ios-deps/include/ogg $(pwd)/RSDKv4 $(pwd)/RSDKv4/NativeObjects $(pwd)/dependencies/all/theoraplay" \
-            'GCC_PREPROCESSOR_DEFINITIONS=RETRO_USING_OPENGL=0 $(inherited)' \
+            'GCC_PREPROCESSOR_DEFINITIONS=RETRO_USING_OPENGL=0 RETRO_USE_MOD_LOADER=0 RETRO_USE_ORIGINAL_CODE=0 $(inherited)' \
             OTHER_CFLAGS="-Wno-deprecated-declarations" \
-            OTHER_LDFLAGS="-framework AVFoundation -framework AudioToolbox -framework CoreAudio -framework CoreBluetooth -framework CoreGraphics -framework CoreHaptics -framework CoreMotion -framework Foundation -framework GameController -framework Metal -framework OpenGLES -framework QuartzCore -framework UIKit"
+            OTHER_LDFLAGS="-lMissing -framework AVFoundation -framework AudioToolbox -framework CoreAudio -framework CoreBluetooth -framework CoreGraphics -framework CoreHaptics -framework CoreMotion -framework Foundation -framework GameController -framework Metal -framework OpenGLES -framework QuartzCore -framework UIKit"
 
       - name: Package IPA
         run: |
