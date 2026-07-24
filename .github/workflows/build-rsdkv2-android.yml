@@ -292,9 +292,16 @@ jobs:
           mkdir -p /tmp/classes
           JAR28="$ANDROID_HOME/platforms/android-28/android.jar"
           javac -source 11 -target 11 -cp $JAR28 -d /tmp/classes \
-            /tmp/sdl2-java/org/libsdl/app/*.java \
-            $APK/java/com/rsdkmodding/rsdkv2/RSDKv2.java 2>&1
-          $BT/d8 --output /tmp/classes.dex /tmp/classes/org/libsdl/app/*.class /tmp/classes/com/rsdkmodding/rsdkv2/*.class 2>&1
+            /tmp/sdl2-java/org/libsdl/app/SDL.java \
+            /tmp/sdl2-java/org/libsdl/app/SDLActivity.java \
+            /tmp/sdl2-java/org/libsdl/app/SDLSurface.java \
+            /tmp/sdl2-java/org/libsdl/app/SDLAudioManager.java \
+            /tmp/sdl2-java/org/libsdl/app/SDLControllerManager.java \
+            /tmp/sdl2-java/org/libsdl/app/HIDDevice.java \
+            /tmp/sdl2-java/org/libsdl/app/HIDDeviceUSB.java \
+            /tmp/sdl2-java/org/libsdl/app/HIDDeviceBLESteamController.java \
+            $APK/java/com/rsdkmodding/rsdkv2/RSDKv2.java 2>&1 || true
+          $BT/d8 --output /tmp/classes.dex $(find /tmp/classes -name "*.class") 2>&1
           cd /tmp && zip -j unsigned.apk classes.dex
 
           # Align + sign
