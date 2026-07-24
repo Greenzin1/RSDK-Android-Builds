@@ -107,7 +107,7 @@ jobs:
         run: |
           # The Xcode project expects libSDLMain.a - create proper SDLMain entry point
           cat > /tmp/sdlmain.c << 'EOF'
-          #include <SDL2/SDL_main.h>
+          #include "SDL_main.h"
           #ifdef main
           #undef main
           #endif
@@ -117,7 +117,7 @@ jobs:
           }
           EOF
           xcrun -sdk iphoneos clang -arch ${{ env.ARCH }} -miphoneos-version-min=${{ env.IOS_MIN_VERSION }} \
-            -Iios-deps/include/SDL2 -c /tmp/sdlmain.c -o /tmp/sdlmain.o
+            -Iios-deps/include -Iios-deps/include/SDL2 -c /tmp/sdlmain.c -o /tmp/sdlmain.o
           mkdir -p dependencies/ios
           ar rcs dependencies/ios/libSDLMain.a /tmp/sdlmain.o
           # Create SDL2.framework structure pointing to our built SDL2

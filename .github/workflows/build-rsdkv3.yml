@@ -164,7 +164,7 @@ jobs:
         run: |
           mkdir -p dependencies/ios
           cat > /tmp/sdlmain.c << 'EOF'
-          #include <SDL2/SDL_main.h>
+          #include "SDL_main.h"
           #ifdef main
           #undef main
           #endif
@@ -174,7 +174,7 @@ jobs:
           }
           EOF
           xcrun -sdk iphoneos clang -arch ${{ env.ARCH }} -miphoneos-version-min=${{ env.IOS_MIN_VERSION }} \
-            -Iios-deps/include/SDL2 -c /tmp/sdlmain.c -o /tmp/sdlmain.o
+            -Iios-deps/include -Iios-deps/include/SDL2 -c /tmp/sdlmain.c -o /tmp/sdlmain.o
           ar rcs dependencies/ios/libSDLMain.a /tmp/sdlmain.o
 
           # Create framework bundles from static libs (Xcode project expects .framework)

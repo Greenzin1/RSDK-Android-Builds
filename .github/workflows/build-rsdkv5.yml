@@ -134,8 +134,8 @@ jobs:
           #endif
           COMPAT
 
-          # Comment out ShowErrorDialog calls (not declared in this fork, Windows-only)
-          sed -i '' 's|^\([[:space:]]*\)RenderDevice::ShowErrorDialog|\1//RenderDevice::ShowErrorDialog|g' RSDKv5/RSDK/Core/RetroEngine.cpp
+          # Remove ShowErrorDialog calls (not declared in this fork, Windows-only)
+          sed -i '' '/RenderDevice::ShowErrorDialog/d' RSDKv5/RSDK/Core/RetroEngine.cpp
 
           # Create cocoaHelpers.hpp for iOS (missing from repo)
           cat > RSDKv5/cocoaHelpers.hpp << 'COCOA'
