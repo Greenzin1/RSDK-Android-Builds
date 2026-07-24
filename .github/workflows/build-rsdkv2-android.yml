@@ -115,7 +115,7 @@ jobs:
           with open(path) as f: content = f.read()
           content = content.replace(
               '#define RETRO_PLATFORM (RETRO_WIN) // Default',
-              '#if defined(__ANDROID__)\n#define RETRO_PLATFORM (RETRO_ANDROID)\n#else\n#define RETRO_PLATFORM (RETRO_WIN)\n#endif'
+              '#ifndef RETRO_PLATFORM\n#if defined(__ANDROID__)\n#define RETRO_PLATFORM (RETRO_ANDROID)\n#else\n#define RETRO_PLATFORM (RETRO_WIN)\n#endif\n#endif'
           )
           content = content.replace(
               '#elif RETRO_PLATFORM == RETRO_iOS\n#include <SDL2/SDL.h>\n#include <vorbis/vorbisfile.h>\n\n#include "cocoaHelpers.hpp"',
@@ -155,12 +155,17 @@ jobs:
           TC=$NDK_PATH/build/cmake/android.toolchain.cmake
           git clone --depth 1 https://github.com/xiph/ogg.git /tmp/ogg
           cd /tmp/ogg && mkdir build && cd build
-          cmake .. -DCMAKE_TOOLCHAIN_FILE=$TC -DANDROID_ABI=${{ env.ABI }} -DANDROID_PLATFORM=android-${{ env.ANDROID_API }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEPS_DIR -DCMAKE_FIND_ROOT_PATH=$DEPS_DIR
+          cmake .. -DCMAKE_TOOLCHAIN_FILE=$TC -DANDROID_ABI=${{ env.ABI }} -DANDROID_PLATFORM=android-${{ env.ANDROID_API }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEPS_DIR
           cmake --build . -j$(nproc) && cmake --install .
           git clone --depth 1 https://github.com/xiph/vorbis.git /tmp/vorbis
           cd /tmp/vorbis && mkdir build && cd build
-          cmake .. -DCMAKE_TOOLCHAIN_FILE=$TC -DANDROID_ABI=${{ env.ABI }} -DANDROID_PLATFORM=android-${{ env.ANDROID_API }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$DEPS_DIR -DCMAKE_INSTALL_PREFIX=$DEPS_DIR -DCMAKE_FIND_ROOT_PATH=$DEPS_DIR
+          cmake .. -DCMAKE_TOOLCHAIN_FILE=$TC -DANDROID_ABI=${{ env.ABI }} -DANDROID_PLATFORM=android-${{ env.ANDROID_API }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$DEPS_DIR -DCMAKE_INSTALL_PREFIX=$DEPS_DIR
           cmake --build . -j$(nproc) && cmake --install .
+          mkdir -p $DEPS_DIR/lib/${{ env.ABI }}
+          cp $DEPS_DIR/lib/libogg.a $DEPS_DIR/lib/${{ env.ABI }}/ 2>/dev/null || true
+          cp $DEPS_DIR/lib/libvorbis.a $DEPS_DIR/lib/${{ env.ABI }}/ 2>/dev/null || true
+          cp $DEPS_DIR/lib/libvorbisfile.a $DEPS_DIR/lib/${{ env.ABI }}/ 2>/dev/null || true
+          ls -la $DEPS_DIR/lib/${{ env.ABI }}/
 
       - name: Build RSDKv2
         working-directory: RSDKv2-Decompilation
