@@ -33,7 +33,7 @@ jobs:
         run: |
           mkdir -p platforms
           cat > platforms/iOS.cmake << 'EOF'
-          add_executable(RetroEngine ${RETRO_FILES})
+          add_executable(RetroEngine ${RETRO_FILES} RSDKv2/cocoaHelpers.mm)
 
           if(EXISTS "${CMAKE_PREFIX_PATH}")
               set(DEPS "${CMAKE_PREFIX_PATH}")
@@ -56,20 +56,37 @@ jobs:
           set_target_properties(RetroEngine PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
           EOF
 
-      - name: Fix cocoaHelpers for iOS
+      - name: Create cocoaHelpers (missing from repo)
         working-directory: RSDKv2-Decompilation
         run: |
-          python3 -c "
-          with open('RSDKv2/RetroEngine.hpp') as f: c = f.read()
-          # The repo already has RETRO_iOS support but includes cocoaHelpers.hpp
-          # which is macOS-only. Remove it for iOS.
-          c = c.replace(
-              '#elif RETRO_PLATFORM == RETRO_iOS\n#include <SDL2/SDL.h>\n#include <vorbis/vorbisfile.h>\n\n#include \"cocoaHelpers.hpp\"',
-              '#elif RETRO_PLATFORM == RETRO_iOS\n#include <SDL2/SDL.h>\n#include <vorbis/vorbisfile.h>'
-          )
-          with open('RSDKv2/RetroEngine.hpp','w') as f: f.write(c)
-          print('Fixed cocoaHelpers for iOS')
-          "
+          cat > RSDKv2/cocoaHelpers.hpp << 'H'
+          #ifndef COCOAHELPERS_HPP
+          #define COCOAHELPERS_HPP
+          const char *getDocumentsPath();
+          const char *getResourcesPath();
+          #endif
+          H
+          cat > RSDKv2/cocoaHelpers.mm << 'M'
+          #import <Foundation/Foundation.h>
+          #include "RetroEngine.hpp"
+          const char *getDocumentsPath() {
+              static NSString *path = nil;
+              if (!path) {
+                  NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+                  path = [[paths firstObject] stringByAppendingString:@"/"];
+              }
+              return [path UTF8String];
+          }
+          const char *getResourcesPath() {
+              static NSString *path = nil;
+              if (!path) {
+                  path = [[NSBundle mainBundle] resourcePath];
+                  path = [path stringByAppendingString:@"/"];
+              }
+              return [path UTF8String];
+          }
+          M
+          echo "Created cocoaHelpers.hpp and cocoaHelpers.mm"
 
       - name: Build SDL2 for iOS
         run: |
