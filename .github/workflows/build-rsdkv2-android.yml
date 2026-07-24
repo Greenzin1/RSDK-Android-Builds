@@ -110,9 +110,21 @@ jobs:
       - name: Patch RetroEngine.hpp for Android
         working-directory: RSDKv2-Decompilation
         run: |
-          sed -i 's|#elif RETRO_PLATFORM == RETRO_iOS|#elif RETRO_PLATFORM == RETRO_iOS\n#include "androidHelpers.hpp"\n#elif RETRO_PLATFORM == RETRO_ANDROID\n#include "androidHelpers.hpp"|' RSDKv2/RetroEngine.hpp
-          sed -i 's|#define RETRO_PLATFORM (RETRO_WIN) // Default|#if defined(__ANDROID__)\n#define RETRO_PLATFORM (RETRO_ANDROID)\n#else\n#define RETRO_PLATFORM (RETRO_WIN)\n#endif|' RSDKv2/RetroEngine.hpp
-          sed -i '/#elif RETRO_PLATFORM == RETRO_ANDROID/{n;s|#include <SDL2/SDL.h>|#include <SDL.h>|}' RSDKv2/RetroEngine.hpp
+          python3 << 'PYEOF'
+          path = 'RSDKv2/RetroEngine.hpp'
+          with open(path) as f: content = f.read()
+          content = content.replace(
+              '#define RETRO_PLATFORM (RETRO_WIN) // Default',
+              '#if defined(__ANDROID__)\n#define RETRO_PLATFORM (RETRO_ANDROID)\n#else\n#define RETRO_PLATFORM (RETRO_WIN)\n#endif'
+          )
+          content = content.replace(
+              '#elif RETRO_PLATFORM == RETRO_iOS\n#include <SDL2/SDL.h>\n#include <vorbis/vorbisfile.h>\n\n#include "cocoaHelpers.hpp"',
+              '#elif RETRO_PLATFORM == RETRO_ANDROID\n#include "androidHelpers.hpp"'
+          )
+          content = content.replace('#include <SDL2/SDL.h>', '#include <SDL.h>')
+          with open(path, 'w') as f: f.write(content)
+          print('RetroEngine.hpp patched for Android')
+          PYEOF
 
       - name: Build SDL2 for Android
         run: |
