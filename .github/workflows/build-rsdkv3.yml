@@ -1,0 +1,166 @@
+name: Build RSDKv3 iOS (Sonic CD)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-rsdkv3.yml'
+      - 'patches/rsdkv3*'
+  workflow_dispatch:
+
+env:
+  IOS_MIN_VERSION: "13.0"
+  ARCH: arm64
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone RSDKv3
+        run: |
+          git clone --recursive https://github.com/RSDKModding/RSDKv3-Decompilation.git
+          cd RSDKv3-Decompilation
+          git log --oneline -5
+
+      - name: Setup iOS toolchain
+        run: |
+          echo "SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)" >> $GITHUB_ENV
+          echo "CC=$(xcrun -find clang)" >> $GITHUB_ENV
+          echo "CXX=$(xcrun -find clang++)" >> $GITHUB_ENV
+
+      - name: Create symlink for Xcode project
+        run: |
+          cd RSDKv3-Decompilation
+          ln -sf RSDKv3 SonicCDDecomp
+
+      - name: Apply iOS patches
+        working-directory: RSDKv3-Decompilation
+        run: |
+          # Fix Theora include case
+          sed -i '' 's|#include <theora/theoradec.h>|#include <theora/theoradec.h>|g' RSDKv3/RetroEngine.hpp || true
+
+          # Add RETRO_iOS platform to RetroEngine.hpp
+          # Add iOS alongside macOS for file loading in Ini.cpp, Reader.cpp, Video.cpp
+          # Add iOS gamePath handling in Userdata.cpp, RetroEngine.cpp, Debug.cpp
+          # These patches are applied via the patch file if present
+          if [ -f "$GITHUB_WORKSPACE/patches/rsdkv3-ios.patch" ]; then
+            cd RSDKv3-Decompilation
+            git apply "$GITHUB_WORKSPACE/patches/rsdkv3-ios.patch"
+          fi
+
+      - name: Build SDL2 for iOS
+        run: |
+          cd RSDKv3-Decompilation
+          git clone --depth 1 --branch release-2.30.0 https://github.com/libsdl-org/SDL.git /tmp/SDL2
+          cd /tmp/SDL2
+          mkdir build-ios && cd build-ios
+          cmake .. \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} \
+            -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
+            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/RSDKv3-Decompilation/ios-deps \
+            -DSDL_STATIC=ON \
+            -DSDL_SHARED=OFF \
+            -DSDL_TEST=OFF \
+            -DSDL_TESTS=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build . -j$(sysctl -n hw.ncpu)
+          cmake --install .
+
+      - name: Build libogg + libvorbis + libtheora for iOS
+        run: |
+          DEPS_DIR=${{ github.workspace }}/RSDKv3-Decompilation/ios-deps
+
+          # libogg
+          git clone --depth 1 https://github.com/xiph/ogg.git /tmp/ogg
+          cd /tmp/ogg && mkdir build && cd build
+          cmake .. \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} \
+            -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
+            -DCMAKE_INSTALL_PREFIX=$DEPS_DIR \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
+
+          # libvorbis
+          git clone --depth 1 https://github.com/xiph/vorbis.git /tmp/vorbis
+          cd /tmp/vorbis && mkdir build && cd build
+          cmake .. \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} \
+            -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
+            -DCMAKE_INSTALL_PREFIX=$DEPS_DIR \
+            -DCMAKE_PREFIX_PATH=$DEPS_DIR \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
+
+          # libtheora (no assembly for iOS)
+          git clone --depth 1 https://github.com/xiph/theora.git /tmp/theora
+          cd /tmp/theora && mkdir build && cd build
+          cmake .. \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} \
+            -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
+            -DCMAKE_INSTALL_PREFIX=$DEPS_DIR \
+            -DCMAKE_PREFIX_PATH=$DEPS_DIR \
+            -DWITH_OGG=ON \
+            -DWITH_VORBIS=ON \
+            -DWITH_EXAMPLES=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
+
+      - name: Build ModAPI stub
+        run: |
+          cd RSDKv3-Decompilation
+          mkdir -p ios-deps
+          cat > /tmp/modapi_stub.cpp << 'STUB'
+          #include <cstdint>
+          extern "C" {
+            int32_t ModAPI_GetCurrentLoadedMod() { return 0; }
+            void ModAPI_SetupModInfo() {}
+          }
+          STUB
+          xcrun -sdk iphoneos clang++ -arch ${{ env.ARCH }} \
+            -std=gnu++14 -miphoneos-version-min=${{ env.IOS_MIN_VERSION }} \
+            -c /tmp/modapi_stub.cpp -o /tmp/modapi_stub.o
+          ar rcs ios-deps/libModAPIStub.a /tmp/modapi_stub.o
+
+      - name: Create Data.rsdk placeholder
+        run: touch RSDKv3-Decompilation/dependencies/ios/Data.rsdk
+
+      - name: Build RSDKv3
+        working-directory: RSDKv3-Decompilation
+        run: |
+          xcodebuild -project "RSDKv3 ios.xcodeproj" \
+            -scheme "RSDKv3" \
+            -configuration Release \
+            -sdk iphoneos \
+            -arch ${{ env.ARCH }} \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            FRAMEWORK_SEARCH_PATHS="$(pwd)/dependencies/ios" \
+            LIBRARY_SEARCH_PATHS="$(pwd)/dependencies/ios $(pwd)/ios-deps/lib" \
+            OTHER_LDFLAGS="-lModAPIStub -framework AVFoundation -framework AudioToolbox -framework CoreAudio -framework CoreBluetooth -framework CoreGraphics -framework CoreHaptics -framework CoreMotion -framework Foundation -framework GameController -framework Metal -framework OpenGLES -framework QuartzCore -framework UIKit" \
+            HEADER_SEARCH_PATHS="$(pwd)/ios-deps/include $(pwd)/ios-deps/include/SDL2 $(pwd)/ios-deps/include/vorbis $(pwd)/ios-deps/include/ogg $(pwd)/ios-deps/include/theora $(pwd)/SonicCDDecomp $(pwd)/dependencies/all/theoraplay" \
+            GCC_PREPROCESSOR_DEFINITIONS="RETRO_USING_OPENGL=0 RETRO_USE_MOD_LOADER=1 $(inherited)" \
+            OTHER_CFLAGS="-Wno-deprecated-declarations -Wno-nonportable-include-path"
+
+      - name: Package IPA
+        run: |
+          APP_DIR=$(find RSDKv3-Decompilation/build -name "RSDKv3.app" -path "*/iphoneos/*" | head -1)
+          if [ -z "$APP_DIR" ]; then
+            echo "ERROR: RSDKv3.app not found"
+            find RSDKv3-Decompilation/build -name "*.app" -type d
+            exit 1
+          fi
+          mkdir -p Payload
+          cp -r "$APP_DIR" Payload/
+          zip -r RSDKv3.ipa Payload
+          echo "IPA size: $(du -h RSDKv3.ipa | cut -f1)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RSDKv3-iOS-arm64
+          path: RSDKv3.ipa
+          retention-days: 30

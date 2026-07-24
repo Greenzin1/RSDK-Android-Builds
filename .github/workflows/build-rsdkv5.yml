@@ -1,0 +1,181 @@
+name: Build RSDKv5 iOS (Sonic Mania)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-rsdkv5.yml'
+      - 'patches/rsdkv5*'
+  workflow_dispatch:
+
+env:
+  IOS_MIN_VERSION: "13.0"
+  ARCH: arm64
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone RSDKv5 (iOS fork)
+        run: |
+          git clone --recursive https://github.com/WamWooWam/RSDKv5-Decompilation.git
+          cd RSDKv5-Decompilation
+          git log --oneline -5
+
+      - name: Setup iOS toolchain
+        run: |
+          echo "SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)" >> $GITHUB_ENV
+          echo "CC=$(xcrun -find clang)" >> $GITHUB_ENV
+          echo "CXX=$(xcrun -find clang++)" >> $GITHUB_ENV
+
+      - name: Apply iOS patches
+        working-directory: RSDKv5-Decompilation
+        run: |
+          if [ -f "$GITHUB_WORKSPACE/patches/rsdkv5-ios.patch" ]; then
+            git apply "$GITHUB_WORKSPACE/patches/rsdkv5-ios.patch"
+          fi
+
+      - name: Build SDL2 for iOS
+        run: |
+          git clone --depth 1 --branch release-2.30.0 https://github.com/libsdl-org/SDL.git /tmp/SDL2
+          cd /tmp/SDL2
+          mkdir build-ios && cd build-ios
+          cmake .. \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} \
+            -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
+            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/RSDKv5-Decompilation/ios-deps \
+            -DSDL_STATIC=ON \
+            -DSDL_SHARED=OFF \
+            -DSDL_TEST=OFF \
+            -DSDL_TESTS=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build . -j$(sysctl -n hw.ncpu)
+          cmake --install .
+
+      - name: Build libogg + libvorbis + libtheora for iOS
+        run: |
+          DEPS_DIR=${{ github.workspace }}/RSDKv5-Decompilation/ios-deps
+
+          # libogg
+          git clone --depth 1 https://github.com/xiph/ogg.git /tmp/ogg
+          cd /tmp/ogg && mkdir build && cd build
+          cmake .. \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} \
+            -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
+            -DCMAKE_INSTALL_PREFIX=$DEPS_DIR \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
+
+          # libvorbis
+          git clone --depth 1 https://github.com/xiph/vorbis.git /tmp/vorbis
+          cd /tmp/vorbis && mkdir build && cd build
+          cmake .. \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} \
+            -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
+            -DCMAKE_INSTALL_PREFIX=$DEPS_DIR \
+            -DCMAKE_PREFIX_PATH=$DEPS_DIR \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
+
+          # libtheora (no assembly for ARM/iOS)
+          git clone --depth 1 https://github.com/xiph/theora.git /tmp/theora
+          cd /tmp/theora && mkdir build && cd build
+          cmake .. \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} \
+            -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
+            -DCMAKE_INSTALL_PREFIX=$DEPS_DIR \
+            -DCMAKE_PREFIX_PATH=$DEPS_DIR \
+            -DWITH_OGG=ON \
+            -DWITH_VORBIS=ON \
+            -DWITH_EXAMPLES=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
+
+      - name: Build tinyxml2 for iOS
+        run: |
+          DEPS_DIR=${{ github.workspace }}/RSDKv5-Decompilation/ios-deps
+          git clone --depth 1 https://github.com/leethomason/tinyxml2.git /tmp/tinyxml2
+          cd /tmp/tinyxml2 && mkdir build && cd build
+          cmake .. \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} \
+            -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
+            -DCMAKE_INSTALL_PREFIX=$DEPS_DIR \
+            -Dtinyxml2_BUILD_TESTING=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
+
+      - name: Create Data.rsdk placeholder
+        run: |
+          mkdir -p RSDKv5-Decompilation/dependencies/RSDKv5/ios
+          touch RSDKv5-Decompilation/dependencies/RSDKv5/ios/Data.rsdk
+
+      - name: Configure RSDKv5 (CMake)
+        working-directory: RSDKv5-Decompilation
+        run: |
+          cmake -B build \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} \
+            -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_FIND_ROOT_PATH="${{ github.workspace }}/RSDKv5-Decompilation/ios-deps" \
+            -DCMAKE_PREFIX_PATH="${{ github.workspace }}/RSDKv5-Decompilation/ios-deps" \
+            -DRETRO_REVISION=3 \
+            -DRETRO_MOD_LOADER=ON \
+            -DRETRO_DISABLE_PLUS=OFF \
+            -DGAME_INCLUDE_EDITOR=OFF
+
+      - name: Build RSDKv5
+        run: cmake --build RSDKv5-Decompilation/build -j$(sysctl -n hw.ncpu)
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload/RSDKv5.app
+
+          # Find the built binary
+          BINARY=$(find RSDKv5-Decompilation/build -name "RSDKv5" -type f ! -name "*.a" ! -name "*.dylib" | head -1)
+          if [ -z "$BINARY" ]; then
+            echo "ERROR: RSDKv5 binary not found"
+            find RSDKv5-Decompilation/build -type f -executable
+            exit 1
+          fi
+
+          cp "$BINARY" Payload/RSDKv5.app/RSDKv5
+
+          # Create Info.plist
+          cat > Payload/RSDKv5.app/Info.plist << 'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>RSDKv5</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.rsdkmodding.rsdkv5</string>
+            <key>CFBundleName</key>
+            <string>RSDKv5</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1.0.0</string>
+            <key>CFBundleVersion</key>
+            <string>1</string>
+            <key>MinimumOSVersion</key>
+            <string>13.0</string>
+          </dict>
+          </plist>
+          PLIST
+
+          zip -r RSDKv5.ipa Payload
+          echo "IPA size: $(du -h RSDKv5.ipa | cut -f1)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RSDKv5-iOS-arm64
+          path: RSDKv5.ipa
+          retention-days: 30

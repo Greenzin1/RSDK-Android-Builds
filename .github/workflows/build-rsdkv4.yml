@@ -1,0 +1,139 @@
+name: Build RSDKv4 iOS (Sonic 1 & 2)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-rsdkv4.yml'
+      - 'patches/rsdkv4*'
+  workflow_dispatch:
+
+env:
+  IOS_MIN_VERSION: "13.0"
+  ARCH: arm64
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone RSDKv4
+        run: |
+          git clone --recursive https://github.com/RSDKModding/RSDKv4-Decompilation.git
+          cd RSDKv4-Decompilation
+          git log --oneline -5
+
+      - name: Setup iOS toolchain
+        run: |
+          echo "SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)" >> $GITHUB_ENV
+          echo "CC=$(xcrun -find clang)" >> $GITHUB_ENV
+          echo "CXX=$(xcrun -find clang++)" >> $GITHUB_ENV
+
+      - name: Create symlink for Xcode project
+        run: |
+          cd RSDKv4-Decompilation
+          ln -sf RSDKv4 Sonic12Decomp
+
+      - name: Apply iOS patches
+        working-directory: RSDKv4-Decompilation
+        run: |
+          if [ -f "$GITHUB_WORKSPACE/patches/rsdkv4-ios.patch" ]; then
+            git apply "$GITHUB_WORKSPACE/patches/rsdkv4-ios.patch"
+          fi
+
+      - name: Build SDL2 for iOS
+        run: |
+          git clone --depth 1 --branch release-2.30.0 https://github.com/libsdl-org/SDL.git /tmp/SDL2
+          cd /tmp/SDL2
+          mkdir build-ios && cd build-ios
+          cmake .. \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} \
+            -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
+            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/RSDKv4-Decompilation/ios-deps \
+            -DSDL_STATIC=ON \
+            -DSDL_SHARED=OFF \
+            -DSDL_TEST=OFF \
+            -DSDL_TESTS=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build . -j$(sysctl -n hw.ncpu)
+          cmake --install .
+
+      - name: Build libogg + libvorbis for iOS
+        run: |
+          DEPS_DIR=${{ github.workspace }}/RSDKv4-Decompilation/ios-deps
+
+          # libogg
+          git clone --depth 1 https://github.com/xiph/ogg.git /tmp/ogg
+          cd /tmp/ogg && mkdir build && cd build
+          cmake .. \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} \
+            -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
+            -DCMAKE_INSTALL_PREFIX=$DEPS_DIR \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
+
+          # libvorbis
+          git clone --depth 1 https://github.com/xiph/vorbis.git /tmp/vorbis
+          cd /tmp/vorbis && mkdir build && cd build
+          cmake .. \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} \
+            -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
+            -DCMAKE_INSTALL_PREFIX=$DEPS_DIR \
+            -DCMAKE_PREFIX_PATH=$DEPS_DIR \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
+
+      - name: Build tinyxml2 for iOS
+        run: |
+          DEPS_DIR=${{ github.workspace }}/RSDKv4-Decompilation/ios-deps
+          git clone --depth 1 https://github.com/leethomason/tinyxml2.git /tmp/tinyxml2
+          cd /tmp/tinyxml2 && mkdir build && cd build
+          cmake .. \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} \
+            -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
+            -DCMAKE_INSTALL_PREFIX=$DEPS_DIR \
+            -Dtinyxml2_BUILD_TESTING=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
+
+      - name: Create Data.rsdk placeholder
+        run: touch RSDKv4-Decompilation/dependencies/ios/Data.rsdk
+
+      - name: Build RSDKv4
+        working-directory: RSDKv4-Decompilation
+        run: |
+          xcodebuild -project "RSDKv4 ios.xcodeproj" \
+            -scheme "RSDKv4" \
+            -configuration Release \
+            -sdk iphoneos \
+            -arch ${{ env.ARCH }} \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            LIBRARY_SEARCH_PATHS="$(pwd)/dependencies/ios $(pwd)/ios-deps/lib" \
+            HEADER_SEARCH_PATHS="$(pwd)/ios-deps/include $(pwd)/ios-deps/include/SDL2 $(pwd)/ios-deps/include/vorbis $(pwd)/ios-deps/include/ogg $(pwd)/RSDKv4 $(pwd)/dependencies/all/theoraplay" \
+            GCC_PREPROCESSOR_DEFINITIONS="RETRO_USING_OPENGL=0 $(inherited)" \
+            OTHER_CFLAGS="-Wno-deprecated-declarations" \
+            OTHER_LDFLAGS="-framework AVFoundation -framework AudioToolbox -framework CoreAudio -framework CoreGraphics -framework CoreMotion -framework Foundation -framework Metal -framework OpenGLES -framework QuartzCore -framework UIKit"
+
+      - name: Package IPA
+        run: |
+          APP_DIR=$(find RSDKv4-Decompilation/build -name "RSDKv4.app" -path "*/iphoneos/*" | head -1)
+          if [ -z "$APP_DIR" ]; then
+            echo "ERROR: RSDKv4.app not found"
+            find RSDKv4-Decompilation/build -name "*.app" -type d
+            exit 1
+          fi
+          mkdir -p Payload
+          cp -r "$APP_DIR" Payload/
+          zip -r RSDKv4.ipa Payload
+          echo "IPA size: $(du -h RSDKv4.ipa | cut -f1)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RSDKv4-iOS-arm64
+          path: RSDKv4.ipa
+          retention-days: 30

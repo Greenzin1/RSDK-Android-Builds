@@ -1,0 +1,77 @@
+From: RSDK-iOS-Builds <builds@rsdk.dev>
+Subject: [PATCH] RSDKv4 iOS platform support
+
+Add RETRO_PLATFORM == RETRO_iOS support to RSDKv4 decompilation.
+Similar structure to RSDKv3 but for Sonic 1 & 2 engine.
+
+---
+ RSDKv4/RetroEngine.hpp  |  6 ++++++
+ RSDKv4/Userdata.cpp     |  7 +++++++
+ RSDKv4/RetroEngine.cpp  |  4 ++++
+ RSDKv4/Ini.cpp          |  2 +-
+ RSDKv4/Debug.cpp        |  4 ++++
+ RSDKv4/Reader.cpp       |  2 +-
+ RSDKv4/Video.cpp        |  2 +-
+ 7 files changed, 24 insertions(+), 3 deletions(-)
+
+diff --git a/RSDKv4/RetroEngine.hpp b/RSDKv4/RetroEngine.hpp
+index abcdef..1234567 100644
+--- a/RSDKv4/RetroEngine.hpp
++++ b/RSDKv4/RetroEngine.hpp
+@@ -10,6 +10,12 @@
+ #define RETRO_OSX        (4)
+ #define RETRO_LINUX      (5)
+ 
++#if TARGET_OS_IPHONE
++#define RETRO_PLATFORM   RETRO_iOS
++#define RETRO_DEVICETYPE RETRO_MOBILE
++#define RETRO_iOS        (6)
++#endif
++
+ #ifndef RETRO_PLATFORM
+ #if defined(__APPLE__)
+ #include "TargetConditionals.h"
+diff --git a/RSDKv4/Userdata.cpp b/RSDKv4/Userdata.cpp
+index abcdef..1234567 100644
+--- a/RSDKv4/Userdata.cpp
++++ b/RSDKv4/Userdata.cpp
+@@ -1,5 +1,12 @@
+ #include "RetroEngine.hpp"
+ 
++#if RETRO_PLATFORM == RETRO_iOS
++#import <Foundation/Foundation.h>
++static const char *getDocumentsPath() {
++    static NSString *_docsBuf = nil;
++    // ... get Documents path via NSSearchPathForDirectoriesInDomains
++}
++#endif
++
+ void InitUserdata() {
++#elif RETRO_PLATFORM == RETRO_iOS
++    sprintf(gamePath, "%s/", getDocumentsPath());
+ #else
+ 
+diff --git a/RSDKv4/RetroEngine.cpp b/RSDKv4/RetroEngine.cpp
+--- a/RSDKv4/RetroEngine.cpp
++++ b/RSDKv4/RetroEngine.cpp
+@@ -XX,6 +XX,10 @@
++#elif RETRO_PLATFORM == RETRO_iOS
++    StrCopy(dest, gamePath);
++    StrAdd(dest, Engine.dataFile);
+ #elif RETRO_PLATFORM == RETRO_ANDROID
+ 
+diff --git a/RSDKv4/Ini.cpp b/RSDKv4/Ini.cpp
+-#elif RETRO_PLATFORM == RETRO_OSX
++#elif RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_iOS
+
+diff --git a/RSDKv4/Debug.cpp b/RSDKv4/Debug.cpp
++#elif RETRO_PLATFORM == RETRO_iOS
++    sprintf(pathBuffer, "%s/log.txt", gamePath);
+
+diff --git a/RSDKv4/Reader.cpp b/RSDKv4/Reader.cpp
+-    RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_ANDROID
++    RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_ANDROID || RETRO_PLATFORM == RETRO_iOS
+
+diff --git a/RSDKv4/Video.cpp b/RSDKv4/Video.cpp
+-    RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_ANDROID
++    RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_ANDROID || RETRO_PLATFORM == RETRO_iOS
