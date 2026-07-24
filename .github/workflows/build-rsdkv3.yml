@@ -167,6 +167,20 @@ jobs:
           xcrun -sdk iphoneos clang -arch ${{ env.ARCH }} -miphoneos-version-min=${{ env.IOS_MIN_VERSION }} -c /tmp/sdlmain.c -o /tmp/sdlmain.o
           ar rcs dependencies/ios/libSDLMain.a /tmp/sdlmain.o
 
+          # Create framework bundles from static libs (Xcode project expects .framework)
+          # SDL2.framework
+          mkdir -p dependencies/ios/SDL2.framework/Headers
+          cp ios-deps/lib/libSDL2.a dependencies/ios/SDL2.framework/SDL2
+          cp ios-deps/include/SDL2/*.h dependencies/ios/SDL2.framework/Headers/
+          # Ogg, Vorbis, Theora frameworks
+          for name in Ogg Vorbis Theora; do
+            mkdir -p "dependencies/ios/${name}.framework/Headers"
+            cp "ios-deps/lib/lib${name}.a" "dependencies/ios/${name}.framework/${name}"
+          done
+          cp ios-deps/include/ogg/* dependencies/ios/Ogg.framework/Headers/ 2>/dev/null || true
+          cp ios-deps/include/vorbis/* dependencies/ios/Vorbis.framework/Headers/ 2>/dev/null || true
+          cp ios-deps/include/theora/* dependencies/ios/Theora.framework/Headers/ 2>/dev/null || true
+
       - name: Build ModAPI stub
         run: |
           cd RSDKv3-Decompilation

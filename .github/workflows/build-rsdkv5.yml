@@ -121,6 +121,27 @@ jobs:
           curl -sL https://raw.githubusercontent.com/leethomason/tinyxml2/master/tinyxml2.cpp -o dependencies/all/tinyxml2/tinyxml2.cpp
           curl -sL https://raw.githubusercontent.com/leethomason/tinyxml2/master/tinyxml2.h -o dependencies/all/tinyxml2/tinyxml2.h
 
+          # Create cocoaHelpers.hpp for iOS (missing from repo)
+          cat > RSDKv5/cocoaHelpers.hpp << 'COCOA'
+          #ifndef COCOAHELPERS_HPP
+          #define COCOAHELPERS_HPP
+          const char *getResourcesPath();
+          #endif
+          COCOA
+
+          cat > RSDKv5/cocoaHelpers.mm << 'OBJC'
+          #import <Foundation/Foundation.h>
+          #include "cocoaHelpers.hpp"
+          const char *getResourcesPath() {
+              static NSString *path = nil;
+              if (!path) {
+                  NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+                  path = [[paths firstObject] stringByAppendingString:@"/"];
+              }
+              return [path UTF8String];
+          }
+          OBJC
+
           cat > CMakeLists.txt << 'CMAKE'
           cmake_minimum_required(VERSION 3.14)
           project(RSDKv5_iOS LANGUAGES C CXX)
@@ -163,6 +184,7 @@ jobs:
               dependencies/all/iniparser/iniparser.cpp
               dependencies/all/iniparser/dictionary.cpp
               dependencies/all/miniz/miniz.c
+              RSDKv5/cocoaHelpers.mm
           )
 
           target_include_directories(RetroEngine PRIVATE

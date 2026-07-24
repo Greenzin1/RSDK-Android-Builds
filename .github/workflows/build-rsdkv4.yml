@@ -114,6 +114,13 @@ jobs:
           mkdir -p dependencies/ios/SDL2.framework/Headers
           cp ios-deps/include/SDL2/*.h dependencies/ios/SDL2.framework/Headers/
           ln -sf $(pwd)/ios-deps/lib/libSDL2.a dependencies/ios/SDL2.framework/SDL2
+          # Create Ogg.framework and Vorbis.framework
+          for name in Ogg Vorbis; do
+            mkdir -p "dependencies/ios/${name}.framework/Headers"
+            cp "ios-deps/lib/lib${name}.a" "dependencies/ios/${name}.framework/${name}"
+          done
+          cp ios-deps/include/ogg/* dependencies/ios/Ogg.framework/Headers/ 2>/dev/null || true
+          cp ios-deps/include/vorbis/* dependencies/ios/Vorbis.framework/Headers/ 2>/dev/null || true
 
       - name: Create Data.rsdk placeholder
         run: touch RSDKv4-Decompilation/dependencies/ios/Data.rsdk
