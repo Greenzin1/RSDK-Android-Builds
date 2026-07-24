@@ -220,7 +220,7 @@ jobs:
       - name: Download SDL2 Java sources
         run: |
           mkdir -p /tmp/sdl2-java/org/libsdl/app
-          find /tmp/SDL2/android -name "*.java" -exec cp {} /tmp/sdl2-java/org/libsdl/app/ \;
+          find /tmp/SDL2 -path "*/org/libsdl/app/*.java" -exec cp {} /tmp/sdl2-java/org/libsdl/app/ \;
           ls /tmp/sdl2-java/org/libsdl/app/
 
       - name: Build APK
