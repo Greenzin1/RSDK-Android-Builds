@@ -34,17 +34,17 @@ jobs:
           export PATH="$THEOS/bin:$PATH"
           make package FINALPACKAGE=1
 
-      - name: List build output
+      - name: Create IPA
         working-directory: liveexec32
         run: |
-          find . -name "*.ipa" -o -name "*.deb" -o -name "LiveExec32" 2>/dev/null
-          ls -laR .theos/ 2>/dev/null | head -50
+          cd .theos/_
+          zip -r ../../RSDKLegacy.ipa Payload/
+          cd ../..
+          ls -la RSDKLegacy.ipa
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: RSDKLegacy
-          path: |
-            liveexec32/.theos/_/**/*.ipa
-            liveexec32/.theos/_/Payload/**
-          if-no-files-found: warn
+          path: liveexec32/RSDKLegacy.ipa
+          if-no-files-found: error
