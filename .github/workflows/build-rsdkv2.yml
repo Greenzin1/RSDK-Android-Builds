@@ -166,6 +166,8 @@ jobs:
             <key>DTSDKName</key><string>iphoneos17.5</string>
             <key>LSRequiresIPhoneOS</key><true/>
             <key>MinimumOSVersion</key><string>13.0</string>
+            <key>UIStatusBarHidden</key><true/>
+            <key>UIViewControllerBasedStatusBarAppearance</key><false/>
             <key>UIDeviceFamily</key>
             <array>
               <integer>1</integer>

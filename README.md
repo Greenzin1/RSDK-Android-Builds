@@ -72,6 +72,7 @@ The decompilations compile the engine+game code natively. Only the asset data fi
 - **RSDKv1:** Baseado no port de Original Xbox do **danielgpinheiro** - https://github.com/danielgpinheiro/RSDKv1-xbox
 - **RSDKv2-v5:** Feito pelas decompilation repos oficiais da comunidade RSDKModding
 - **RSDKv5 (iOS fork):** WamWooWam - https://github.com/WamWooWam/RSDKv5-Decompilation
+- **Sega of America:** Criadora dos emuladores Genesis/Mega Drive usados nos IPAs de Sonic 1 (2009) e Sonic Spinball (2012) - esses emuladores continham o engine emulado com CPU M68000 + Z80 + VDP, e serviram de base pro liveexec32
 - **SDL2, libogg, libvorbis, libtheora:** Compilados do fonte pelo GitHub Actions
 - **danielgpinheiro:** Referencia principal do RSDKv1
 
