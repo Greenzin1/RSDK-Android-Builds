@@ -189,13 +189,18 @@ jobs:
           cmake .. -DCMAKE_TOOLCHAIN_FILE=$TC -DANDROID_ABI=${{ env.ABI }} -DANDROID_PLATFORM=android-${{ env.ANDROID_API }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$DEPS_DIR -DCMAKE_INSTALL_PREFIX=$DEPS_DIR -DOGG_INCLUDE_DIR=$DEPS_DIR/include -DOGG_LIBRARY=$DEPS_DIR/lib/${{ env.ABI }}/libogg.a
           cmake --build . -j$(nproc) && cmake --install .
           mkdir -p $DEPS_DIR/lib/${{ env.ABI }}
-          cp $DEPS_DIR/lib/libogg.a $DEPS_DIR/lib/${{ env.ABI }}/ 2>/dev/null || true
-          cp $DEPS_DIR/lib/libvorbis.a $DEPS_DIR/lib/${{ env.ABI }}/ 2>/dev/null || true
-          cp $DEPS_DIR/lib/libvorbisfile.a $DEPS_DIR/lib/${{ env.ABI }}/ 2>/dev/null || true
-          mkdir -p $DEPS_DIR/include/ogg $DEPS_DIR/include/vorbis
-          cp /tmp/ogg/include/ogg/*.h $DEPS_DIR/include/ogg/
-          cp /tmp/vorbis/include/vorbis/*.h $DEPS_DIR/include/vorbis/
-          ls $DEPS_DIR/include/vorbis/ && ls $DEPS_DIR/lib/${{ env.ABI }}/
+          for lib in libogg.a libvorbis.a libvorbisfile.a; do
+            if [ -f $DEPS_DIR/lib/${{ env.ABI }}/$lib ]; then
+              echo "$lib already in ABI dir"
+            elif [ -f $DEPS_DIR/lib/$lib ]; then
+              cp $DEPS_DIR/lib/$lib $DEPS_DIR/lib/${{ env.ABI }}/
+              echo "Copied $lib from flat dir"
+            else
+              echo "WARNING: $lib not found anywhere!"
+              find $DEPS_DIR -name "$lib" 2>/dev/null
+            fi
+          done
+          ls -la $DEPS_DIR/lib/${{ env.ABI }}/
 
       - name: Build RSDKv1
         working-directory: RSDKv2-Decompilation
