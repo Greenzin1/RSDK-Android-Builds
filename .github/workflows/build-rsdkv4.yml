@@ -91,6 +91,17 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
 
+      - name: Create NativeObjects symlinks (Xcode project has wrong paths)
+        working-directory: RSDKv4-Decompilation
+        run: |
+          for f in RSDKv4/NativeObjects/*.cpp RSDKv4/NativeObjects/*.hpp; do
+            base=$(basename "$f")
+            if [ ! -e "RSDKv4/$base" ]; then
+              ln -s "NativeObjects/$base" "RSDKv4/$base"
+              echo "Linked: RSDKv4/$base -> NativeObjects/$base"
+            fi
+          done
+
       - name: Create Data.rsdk placeholder
         run: touch RSDKv4-Decompilation/dependencies/ios/Data.rsdk
 

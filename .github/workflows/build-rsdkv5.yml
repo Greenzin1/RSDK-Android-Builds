@@ -131,37 +131,6 @@ jobs:
           )
           target_include_directories(libogg PRIVATE dependencies/android/libogg/include)
 
-          add_library(libtheora STATIC
-              dependencies/android/libtheora/lib/analyze.c
-              dependencies/android/libtheora/lib/apiwrapper.c
-              dependencies/android/libtheora/lib/bitpack.c
-              dependencies/android/libtheora/lib/cpu.c
-              dependencies/android/libtheora/lib/decapiwrapper.c
-              dependencies/android/libtheora/lib/decinfo.c
-              dependencies/android/libtheora/lib/decode.c
-              dependencies/android/libtheora/lib/dequant.c
-              dependencies/android/libtheora/lib/encapiwrapper.c
-              dependencies/android/libtheora/lib/encfrag.c
-              dependencies/android/libtheora/lib/encinfo.c
-              dependencies/android/libtheora/lib/encode.c
-              dependencies/android/libtheora/lib/encoder_disabled.c
-              dependencies/android/libtheora/lib/enquant.c
-              dependencies/android/libtheora/lib/fdct.c
-              dependencies/android/libtheora/lib/fragment.c
-              dependencies/android/libtheora/lib/huffdec.c
-              dependencies/android/libtheora/lib/huffenc.c
-              dependencies/android/libtheora/lib/idct.c
-              dependencies/android/libtheora/lib/info.c
-              dependencies/android/libtheora/lib/internal.c
-              dependencies/android/libtheora/lib/mathops.c
-              dependencies/android/libtheora/lib/mcenc.c
-              dependencies/android/libtheora/lib/quant.c
-              dependencies/android/libtheora/lib/rate.c
-              dependencies/android/libtheora/lib/state.c
-              dependencies/android/libtheora/lib/tokenize.c
-          )
-          target_include_directories(libtheora PRIVATE dependencies/android/libogg/include dependencies/android/libtheora/include)
-
           add_executable(RetroEngine
               RSDKv5/main.cpp
               RSDKv5/RSDK/Core/RetroEngine.cpp
@@ -219,8 +188,9 @@ jobs:
 
           target_link_libraries(RetroEngine
               libogg
-              libtheora
               "-L${DEPS_DIR}/lib"
+              "-ltheora"
+              "-ltheoradec"
               "-lSDL2"
               "-framework UIKit"
               "-framework Foundation"
