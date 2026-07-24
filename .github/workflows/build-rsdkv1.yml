@@ -28,6 +28,37 @@ jobs:
           echo "CC=$(xcrun -find clang)" >> $GITHUB_ENV
           echo "CXX=$(xcrun -find clang++)" >> $GITHUB_ENV
 
+      - name: Create iOS CMake platform file
+        working-directory: RSDKv2-Decompilation
+        run: |
+          mkdir -p platforms
+          cat > platforms/iOS.cmake << 'EOF'
+          find_library(OGG_LIB ogg)
+          find_library(VORBIS_LIB vorbis)
+          find_library(VORBISFILE_LIB vorbisfile)
+          find_library(SDL2_LIB SDL2)
+
+          add_executable(RetroEngine ${RETRO_FILES})
+
+          if(OGG_LIB AND VORBIS_LIB AND VORBISFILE_LIB)
+              target_link_libraries(RetroEngine ${OGG_LIB} ${VORBIS_LIB} ${VORBISFILE_LIB})
+          else()
+              set(COMPILE_OGG TRUE)
+              set(COMPILE_VORBIS TRUE)
+          endif()
+
+          if(SDL2_LIB)
+              target_link_libraries(RetroEngine ${SDL2_LIB})
+          endif()
+
+          if(RETRO_USE_MOD_LOADER)
+              set_target_properties(RetroEngine PROPERTIES
+                  CXX_STANDARD 17
+                  CXX_STANDARD_REQUIRED ON
+              )
+          endif()
+          EOF
+
       - name: Apply iOS platform support
         working-directory: RSDKv2-Decompilation
         run: |
