@@ -67,7 +67,7 @@ jobs:
           set_target_properties(vorbisfile PROPERTIES IMPORTED_LOCATION ${DEPS}/lib/${ANDROID_ABI}/libvorbisfile.a)
           target_include_directories(vorbisfile INTERFACE ${DEPS}/include)
 
-          target_link_libraries(RetroEngine SDL2 ogg vorbis vorbisfile log android EGL GLESv2 GLESv1_CM)
+          target_link_libraries(RetroEngine SDL2 ogg vorbis vorbisfile log android EGL GLESv2 GLESv1_CM OpenSLES)
           target_include_directories(RetroEngine PRIVATE ${DEPS}/include)
 
           # Disable bundled source compilation
