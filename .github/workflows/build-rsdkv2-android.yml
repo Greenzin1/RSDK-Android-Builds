@@ -31,7 +31,7 @@ jobs:
 
       - name: Install NDK
         run: |
-          sdkmanager "ndk;${{ env.ANDROID_NDK_VERSION }}" "build-tools;${{ env.ANDROID_BUILD_TOOLS }}" "platforms;android-${{ env.ANDROID_API }}" "platforms;android-28"
+          sdkmanager "ndk;${{ env.ANDROID_NDK_VERSION }}" "build-tools;${{ env.ANDROID_BUILD_TOOLS }}" "platforms;android-${{ env.ANDROID_API }}" "platforms;android-31"
           echo "NDK_PATH=$ANDROID_HOME/ndk/${{ env.ANDROID_NDK_VERSION }}" >> $GITHUB_ENV
 
       - name: Clone RSDKv2
@@ -290,17 +290,10 @@ jobs:
 
           # Compile SDL2 Java + custom Activity
           mkdir -p /tmp/classes
-          JAR28="$ANDROID_HOME/platforms/android-28/android.jar"
-          javac -source 11 -target 11 -cp $JAR28 -d /tmp/classes \
-            /tmp/sdl2-java/org/libsdl/app/SDL.java \
-            /tmp/sdl2-java/org/libsdl/app/SDLActivity.java \
-            /tmp/sdl2-java/org/libsdl/app/SDLSurface.java \
-            /tmp/sdl2-java/org/libsdl/app/SDLAudioManager.java \
-            /tmp/sdl2-java/org/libsdl/app/SDLControllerManager.java \
-            /tmp/sdl2-java/org/libsdl/app/HIDDevice.java \
-            /tmp/sdl2-java/org/libsdl/app/HIDDeviceUSB.java \
-            /tmp/sdl2-java/org/libsdl/app/HIDDeviceBLESteamController.java \
-            $APK/java/com/rsdkmodding/rsdkv2/RSDKv2.java 2>&1 || true
+          JAR31="$ANDROID_HOME/platforms/android-31/android.jar"
+          javac -source 11 -target 11 -cp $JAR31 -d /tmp/classes \
+            /tmp/sdl2-java/org/libsdl/app/*.java \
+            $APK/java/com/rsdkmodding/rsdkv2/RSDKv2.java 2>&1
           mkdir -p /tmp/d8out
           $BT/d8 --output /tmp/d8out $(find /tmp/classes -name "*.class") 2>&1
           cd /tmp && zip -j unsigned.apk d8out/classes.dex
