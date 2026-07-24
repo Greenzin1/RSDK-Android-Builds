@@ -244,8 +244,7 @@ jobs:
               <uses-feature android:glEsVersion="0x00020000" />
               <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-              <application android:label="Retro-Sonic" android:hasCode="true"
-                  android:requestLegacyExternalStorage="true">
+              <application android:label="Retro-Sonic" android:hasCode="true">
                   <activity android:name="com.rsdkmodding.rsdkv1.RSDKv1"
                       android:label="Retro-Sonic"
                       android:configChanges="orientation|keyboardHidden|screenSize|screenLayout|smallestScreenSize"
