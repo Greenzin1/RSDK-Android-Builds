@@ -112,6 +112,19 @@ jobs:
           PYEOF
           python3 /tmp/patch_ios.py
 
+      - name: Fix iOS includes
+        working-directory: RSDKv2-Decompilation
+        run: |
+          python3 -c "
+          with open('RSDKv2/RetroEngine.hpp') as f: c = f.read()
+          c = c.replace(
+              '#elif RETRO_PLATFORM == RETRO_iOS\n#include <SDL2/SDL.h>\n#include <vorbis/vorbisfile.h>\n\n#include \"cocoaHelpers.hpp\"',
+              '#elif RETRO_PLATFORM == RETRO_iOS\n#include <SDL2/SDL.h>\n#include <vorbis/vorbisfile.h>'
+          )
+          with open('RSDKv2/RetroEngine.hpp','w') as f: f.write(c)
+          print('Removed cocoaHelpers.hpp for iOS')
+          "
+
       - name: Apply RSDKv1 data format changes
         working-directory: RSDKv2-Decompilation
         run: |
