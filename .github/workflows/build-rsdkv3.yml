@@ -163,8 +163,18 @@ jobs:
         working-directory: RSDKv3-Decompilation
         run: |
           mkdir -p dependencies/ios
-          echo 'void SDLMain_stub(void){}' > /tmp/sdlmain.c
-          xcrun -sdk iphoneos clang -arch ${{ env.ARCH }} -miphoneos-version-min=${{ env.IOS_MIN_VERSION }} -c /tmp/sdlmain.c -o /tmp/sdlmain.o
+          cat > /tmp/sdlmain.c << 'EOF'
+          #include <SDL2/SDL_main.h>
+          #ifdef main
+          #undef main
+          #endif
+          extern int SDL_main(int argc, char *argv[]);
+          int main(int argc, char *argv[]) {
+              return SDL_main(argc, argv);
+          }
+          EOF
+          xcrun -sdk iphoneos clang -arch ${{ env.ARCH }} -miphoneos-version-min=${{ env.IOS_MIN_VERSION }} \
+            -Iios-deps/include/SDL2 -c /tmp/sdlmain.c -o /tmp/sdlmain.o
           ar rcs dependencies/ios/libSDLMain.a /tmp/sdlmain.o
 
           # Create framework bundles from static libs (Xcode project expects .framework)

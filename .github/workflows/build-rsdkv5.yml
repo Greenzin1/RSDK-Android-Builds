@@ -121,6 +121,22 @@ jobs:
           curl -sL https://raw.githubusercontent.com/leethomason/tinyxml2/master/tinyxml2.cpp -o dependencies/all/tinyxml2/tinyxml2.cpp
           curl -sL https://raw.githubusercontent.com/leethomason/tinyxml2/master/tinyxml2.h -o dependencies/all/tinyxml2/tinyxml2.h
 
+          # Create platform compatibility header for iOS
+          cat > RSDKv5/ios_compat.h << 'COMPAT'
+          #ifndef IOS_COMPAT_H
+          #ifndef _WIN32
+          #include <climits>
+          #ifndef MAX_PATH
+          #define MAX_PATH PATH_MAX
+          #endif
+          typedef void* HINSTANCE;
+          #endif
+          #endif
+          COMPAT
+
+          # Comment out ShowErrorDialog calls (not declared in this fork, Windows-only)
+          sed -i '' 's|^\([[:space:]]*\)RenderDevice::ShowErrorDialog|\1//RenderDevice::ShowErrorDialog|g' RSDKv5/RSDK/Core/RetroEngine.cpp
+
           # Create cocoaHelpers.hpp for iOS (missing from repo)
           cat > RSDKv5/cocoaHelpers.hpp << 'COCOA'
           #ifndef COCOAHELPERS_HPP
@@ -203,7 +219,7 @@ jobs:
               SDL_MAIN_HANDLED
           )
 
-          target_compile_options(RetroEngine PRIVATE -fexceptions -frtti)
+          target_compile_options(RetroEngine PRIVATE -fexceptions -frtti -include ${CMAKE_SOURCE_DIR}/RSDKv5/ios_compat.h)
 
           target_link_libraries(RetroEngine
               "-L${DEPS_DIR}/lib"

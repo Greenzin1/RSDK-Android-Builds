@@ -11,7 +11,6 @@ GitHub Actions workflows for building Retro Engine SDK decompilations as native 
 | `build-rsdkv3.yml` | RSDKv3 | Sonic CD (2011) | 🔧 |
 | `build-rsdkv4.yml` | RSDKv4 | Sonic 1 & 2 (2013) | 🔧 |
 | `build-rsdkv5.yml` | RSDKv5 | Sonic Mania | 🔧 |
-| `build-rsdkv6.yml` | RSDKv6 | Penny's Big Breakaway / Star Engine | ⚠️ (if possible, idk if Evening Star will like, so i will make it private) |
 
 ## Fork History
 
@@ -49,20 +48,6 @@ O nosso workflow cria um CMakeLists.txt proprio pra iOS que usa SDL2, linka as f
 
 Sonic Mania (2017) is the most famous game made with the Retro Engine. The original CMakeLists.txt is Android-only (uses games-controller, game-activity, etc from Android Jetpack). The WamWooWam fork (https://github.com/WamWooWam/RSDKv5-Decompilation) appeared in 2024 with iOS support, got popular because nothing existed for v5 in 2023, the app was on AltStore etc. But it's already outdated after the official RSDKModding repo's 1.1.1 + U version from 2024.
 
-### RSDKv6 (Star Engine / Penny's Big Breakaway)
-
-O RSDKv6 e o Star Engine, usado no Penny's Big Breakaway da Evening Star (2024). Baseado no RSDKv5 com suporte a 3D e uma dev menu que provavelmente foi removida. O titulo card do Mania tambem aparece no engine.
-
-A unica ferramenta disponivel e o `rsdkv6-extract` (https://github.com/RSDKModding/rsdkv6-extract), um extractor WIP que le assets mas nao e um decompilation completo.
-
-O workflow ta marcado como ⚠️ porque o repo pode ser tornado privado - nao sei se a Evening Star vai gostar.
-
-RSDKv6 is the Star Engine, used in Penny's Big Breakaway by Evening Star (2024). Based on RSDKv5 with 3D support and a dev menu that was probably removed. The Mania title card also appears in the engine.
-
-The only tool available is `rsdkv6-extract` (https://github.com/RSDKModding/rsdkv6-extract), a WIP extractor that reads assets but isn't a full decompilation.
-
-The workflow is marked ⚠️ because the repo might be made private - idk if Evening Star will be okay with it.
-
 ## Usage
 
 Trigger a build via:
@@ -79,7 +64,6 @@ You must supply your own legally obtained game data files:
 - **RSDKv3:** `Data.rsdk` from Sonic CD iOS
 - **RSDKv4:** `Data.rsdk` from Sonic 1 or Sonic 2 iOS
 - **RSDKv5:** `Data.rsdk` from Sonic Mania iOS
-- **RSDKv6:** `Data.rsdk` from Penny's Big Breakaway
 
 The decompilations compile the engine+game code natively. Only the asset data file is needed at runtime.
 
@@ -88,7 +72,6 @@ The decompilations compile the engine+game code natively. Only the asset data fi
 - **RSDKv1:** Baseado no port de Original Xbox do **danielgpinheiro** - https://github.com/danielgpinheiro/RSDKv1-xbox
 - **RSDKv2-v5:** Feito pelas decompilation repos oficiais da comunidade RSDKModding
 - **RSDKv5 (iOS fork):** WamWooWam - https://github.com/WamWooWam/RSDKv5-Decompilation
-- **RSDKv6 (extract):** RSDKModding - https://github.com/RSDKModding/rsdkv6-extract
 - **SDL2, libogg, libvorbis, libtheora:** Compilados do fonte pelo GitHub Actions
 - **danielgpinheiro:** Referencia principal do RSDKv1
 

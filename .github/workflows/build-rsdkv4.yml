@@ -105,9 +105,19 @@ jobs:
       - name: Create SDLMain stub and framework symlink
         working-directory: RSDKv4-Decompilation
         run: |
-          # The Xcode project expects libSDLMain.a - create empty stub
-          echo 'void SDLMain_stub(void){}' > /tmp/sdlmain.c
-          xcrun -sdk iphoneos clang -arch ${{ env.ARCH }} -miphoneos-version-min=${{ env.IOS_MIN_VERSION }} -c /tmp/sdlmain.c -o /tmp/sdlmain.o
+          # The Xcode project expects libSDLMain.a - create proper SDLMain entry point
+          cat > /tmp/sdlmain.c << 'EOF'
+          #include <SDL2/SDL_main.h>
+          #ifdef main
+          #undef main
+          #endif
+          extern int SDL_main(int argc, char *argv[]);
+          int main(int argc, char *argv[]) {
+              return SDL_main(argc, argv);
+          }
+          EOF
+          xcrun -sdk iphoneos clang -arch ${{ env.ARCH }} -miphoneos-version-min=${{ env.IOS_MIN_VERSION }} \
+            -Iios-deps/include/SDL2 -c /tmp/sdlmain.c -o /tmp/sdlmain.o
           mkdir -p dependencies/ios
           ar rcs dependencies/ios/libSDLMain.a /tmp/sdlmain.o
           # Create SDL2.framework structure pointing to our built SDL2
@@ -139,7 +149,7 @@ jobs:
             HEADER_SEARCH_PATHS="$(pwd)/ios-deps/include $(pwd)/ios-deps/include/SDL2 $(pwd)/ios-deps/include/vorbis $(pwd)/ios-deps/include/ogg $(pwd)/RSDKv4 $(pwd)/RSDKv4/NativeObjects $(pwd)/dependencies/all/theoraplay" \
             'GCC_PREPROCESSOR_DEFINITIONS=RETRO_USING_OPENGL=0 $(inherited)' \
             OTHER_CFLAGS="-Wno-deprecated-declarations" \
-            OTHER_LDFLAGS="-framework AVFoundation -framework AudioToolbox -framework CoreAudio -framework CoreGraphics -framework CoreMotion -framework Foundation -framework Metal -framework OpenGLES -framework QuartzCore -framework UIKit"
+            OTHER_LDFLAGS="-framework AVFoundation -framework AudioToolbox -framework CoreAudio -framework CoreBluetooth -framework CoreGraphics -framework CoreHaptics -framework CoreMotion -framework Foundation -framework GameController -framework Metal -framework OpenGLES -framework QuartzCore -framework UIKit"
 
       - name: Package IPA
         run: |
