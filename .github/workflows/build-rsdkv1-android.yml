@@ -232,9 +232,9 @@ jobs:
           rm -rf $APK /tmp/unsigned.apk /tmp/aligned.apk $WORK/RSDKv1.apk
           mkdir -p $APK/lib/${{ env.ABI }} $APK/res/values $APK/java/com/rsdkmodding/rsdkv1
 
-          SO=$(find $WORK/build -name "libRSDKv1.so" | head -1)
-          if [ -z "$SO" ]; then echo "ERROR: libRSDKv1.so not found"; find $WORK/build -name "*.so"; exit 1; fi
-          cp "$SO" $APK/lib/${{ env.ABI }}/
+          SO=$(find $WORK/build -name "libRSDKv*.so" | head -1)
+          if [ -z "$SO" ]; then echo "ERROR: .so not found"; find $WORK/build -name "*.so"; exit 1; fi
+          cp "$SO" $APK/lib/${{ env.ABI }}/libRSDKv1.so
 
           cat > $APK/AndroidManifest.xml << 'XML'
           <?xml version="1.0" encoding="utf-8"?>
