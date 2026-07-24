@@ -102,6 +102,18 @@ jobs:
             fi
           done
 
+      - name: Create SDLMain stub and framework symlink
+        working-directory: RSDKv4-Decompilation
+        run: |
+          # The Xcode project expects libSDLMain.a - create empty stub
+          echo 'void dummy SDLMain_stub(){}' | xcrun -sdk iphoneos clang -arch ${{ env.ARCH }} -c -x c - -o /tmp/sdlmain_stub.o
+          mkdir -p dependencies/ios
+          ar rcs dependencies/ios/libSDLMain.a /tmp/sdlmain_stub.o
+          # Create SDL2.framework structure pointing to our built SDL2
+          mkdir -p dependencies/ios/SDL2.framework/Headers
+          cp ios-deps/include/SDL2/*.h dependencies/ios/SDL2.framework/Headers/
+          ln -sf $(pwd)/ios-deps/lib/libSDL2.a dependencies/ios/SDL2.framework/SDL2
+
       - name: Create Data.rsdk placeholder
         run: touch RSDKv4-Decompilation/dependencies/ios/Data.rsdk
 
@@ -115,7 +127,7 @@ jobs:
             -arch ${{ env.ARCH }} \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
-            LIBRARY_SEARCH_PATHS="$(pwd)/dependencies/ios $(pwd)/ios-deps/lib" \
+            LIBRARY_SEARCH_PATHS="$(pwd)/dependencies/ios $(pwd)/ios-deps/lib $(pwd)/ios-deps" \
             HEADER_SEARCH_PATHS="$(pwd)/ios-deps/include $(pwd)/ios-deps/include/SDL2 $(pwd)/ios-deps/include/vorbis $(pwd)/ios-deps/include/ogg $(pwd)/RSDKv4 $(pwd)/RSDKv4/NativeObjects $(pwd)/dependencies/all/theoraplay" \
             'GCC_PREPROCESSOR_DEFINITIONS=RETRO_USING_OPENGL=0 $(inherited)' \
             OTHER_CFLAGS="-Wno-deprecated-declarations" \

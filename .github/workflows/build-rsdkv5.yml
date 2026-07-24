@@ -116,6 +116,16 @@ jobs:
       - name: Create iOS CMakeLists.txt (Android one won't work)
         working-directory: RSDKv5-Decompilation
         run: |
+          # Download libogg sources (gitignored in repo)
+          mkdir -p dependencies/android/libogg/src
+          curl -sL https://raw.githubusercontent.com/xiph/ogg/master/src/bitwise.c -o dependencies/android/libogg/src/bitwise.c
+          curl -sL https://raw.githubusercontent.com/xiph/ogg/master/src/framing.c -o dependencies/android/libogg/src/framing.c
+
+          # Download tinyxml2 (gitignored in repo)
+          mkdir -p dependencies/all/tinyxml2
+          curl -sL https://raw.githubusercontent.com/leethomason/tinyxml2/master/tinyxml2.cpp -o dependencies/all/tinyxml2/tinyxml2.cpp
+          curl -sL https://raw.githubusercontent.com/leethomason/tinyxml2/master/tinyxml2.h -o dependencies/all/tinyxml2/tinyxml2.h
+
           cat > CMakeLists.txt << 'CMAKE'
           cmake_minimum_required(VERSION 3.14)
           project(RSDKv5_iOS LANGUAGES C CXX)
