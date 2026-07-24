@@ -58,61 +58,7 @@ jobs:
           endif()
           EOF
 
-      - name: Apply iOS platform support
-        working-directory: RSDKv2-Decompilation
-        run: |
-          cat > /tmp/patch_ios.py << 'PYEOF'
-          import re, os
-
-          def patch_file(path, old, new):
-              with open(path) as f: content = f.read()
-              if new.split('\n')[0] in content:
-                  print(f'  SKIP {path} (already patched)')
-                  return
-              if old not in content:
-                  print(f'  WARN {path}: pattern not found, skipping')
-                  return
-              content = content.replace(old, new)
-              with open(path, 'w') as f: f.write(content)
-              print(f'  OK   {path}')
-
-          print('Applying iOS platform patches to RSDKv2...')
-
-          # RetroEngine.hpp
-          patch_file('RSDKv2/RetroEngine.hpp',
-              '#ifndef RETRO_PLATFORM',
-              '#if TARGET_OS_IPHONE\n#define RETRO_PLATFORM   RETRO_iOS\n#define RETRO_DEVICETYPE RETRO_MOBILE\n#define RETRO_iOS        (6)\n#endif\n\n#ifndef RETRO_PLATFORM')
-
-          # Userdata.cpp
-          patch_file('RSDKv2/Userdata.cpp',
-              'void InitUserdata() {',
-              '#if RETRO_PLATFORM == RETRO_iOS\n#import <Foundation/Foundation.h>\nstatic const char *getDocumentsPath() {\n    static NSString *_docsBuf = nil;\n    if (!_docsBuf) {\n        NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);\n        _docsBuf = [[paths firstObject] stringByAppendingString:@"/"];\n    }\n    return [_docsBuf UTF8String];\n}\n#endif\n\nvoid InitUserdata() {\n#if RETRO_PLATFORM == RETRO_iOS\n    StrCopy(gamePath, getDocumentsPath());\n#else')
-
-          # RetroEngine.cpp
-          patch_file('RSDKv2/RetroEngine.cpp',
-              '#elif RETRO_PLATFORM == RETRO_ANDROID',
-              '#elif RETRO_PLATFORM == RETRO_iOS\n    StrCopy(dest, gamePath);\n    StrAdd(dest, Engine.dataFile);\n#elif RETRO_PLATFORM == RETRO_ANDROID')
-
-          # Ini.cpp
-          patch_file('RSDKv2/Ini.cpp',
-              '#elif RETRO_PLATFORM == RETRO_OSX',
-              '#elif RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_iOS')
-
-          # Debug.cpp
-          patch_file('RSDKv2/Debug.cpp',
-              '#elif RETRO_PLATFORM == RETRO_ANDROID',
-              '#elif RETRO_PLATFORM == RETRO_iOS\n    sprintf(pathBuffer, \"%s/log.txt\", gamePath);\n#elif RETRO_PLATFORM == RETRO_ANDROID')
-
-          # Reader.cpp
-          patch_file('RSDKv2/Reader.cpp',
-              'RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_ANDROID',
-              'RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_ANDROID || RETRO_PLATFORM == RETRO_iOS')
-
-          print('iOS patches applied successfully')
-          PYEOF
-          python3 /tmp/patch_ios.py
-
-      - name: Fix iOS includes
+      - name: Fix cocoaHelpers for iOS
         working-directory: RSDKv2-Decompilation
         run: |
           python3 -c "
@@ -122,29 +68,25 @@ jobs:
               '#elif RETRO_PLATFORM == RETRO_iOS\n#include <SDL2/SDL.h>\n#include <vorbis/vorbisfile.h>'
           )
           with open('RSDKv2/RetroEngine.hpp','w') as f: f.write(c)
-          print('Removed cocoaHelpers.hpp for iOS')
+          print('Fixed cocoaHelpers for iOS')
           "
 
       - name: Apply RSDKv1 data format changes
         working-directory: RSDKv2-Decompilation
         run: |
           cat > /tmp/patch_rsdkv1.py << 'PYEOF'
-          # Scene.cpp - RSDKv1 format changes
           path = 'RSDKv2/Scene.cpp'
           with open(path) as f: content = f.read()
 
-          # 1. Add cameraLag variable
           if 'cameraLag' not in content:
               content = content.replace('int stageListPosition;', 'int stageListPosition;\n\nint cameraLag = 0;')
               print('Added cameraLag variable')
 
-          # 2. Add GFX fallback function
           if 'LoadStageGFXFile' not in content:
               gfx = '\nvoid LoadStageGFXFile(int listNo) {\n    int info = 0;\n    if (!OpenStageFile("16x16Tiles.gfx", listNo, &info))\n        return;\n    byte gfxWidth = 0;\n    byte gfxHeight = 0;\n    FileRead(&gfxWidth, 1);\n    FileRead(&gfxHeight, 1);\n    byte paletteSkip[765];\n    FileRead(paletteSkip, 765);\n    int x = 0, y = 0;\n    byte pixel = 0;\n    byte count = 0;\n    while (y < gfxHeight) {\n        FileRead(&pixel, 1);\n        if (pixel == 0xFF) {\n            FileRead(&pixel, 1);\n            FileRead(&count, 1);\n            for (int i = 0; i <= count; i++) {\n                x++;\n                if (x >= gfxWidth) { x = 0; y++; }\n            }\n        } else {\n            x++;\n            if (x >= gfxWidth) { x = 0; y++; }\n        }\n    }\n    CloseFile();\n}\n'
               content = content.replace('int LoadStageFiles()', gfx + '\nint LoadStageFiles()')
               print('Added LoadStageGFXFile function')
 
-          # 3. Add RSDKv1 chunk loading
           if 'LoadStageChunks_RSDKv1' not in content:
               chunk = '\nvoid LoadStageChunks_RSDKv1() {\n    byte entry[3];\n    for (int i = 0; i < 0x4000; ++i) {\n        if (FileRead(&entry, 3) == 0) break;\n        entry[0] -= (byte)((entry[0] >> 6) << 6);\n        tiles128x128.tileIndex[i] = entry[1] + (entry[0] << 8);\n        tiles128x128.gfxDataPos[i] = tiles128x128.tileIndex[i] << 8;\n        tiles128x128.direction[i]  = entry[2] >> 4;\n        tiles128x128.visualPlane[i] = (entry[2] >> 2) & 3;\n        tiles128x128.collisionFlag1[i] = entry[2] & 1;\n        tiles128x128.collisionFlag2[i] = (entry[2] >> 1) & 1;\n    }\n}\n'
               content = content.replace('int LoadStageFiles()', chunk + '\nint LoadStageFiles()')
@@ -153,7 +95,6 @@ jobs:
           with open(path, 'w') as f: f.write(content)
           print('RSDKv1 format changes applied to Scene.cpp')
 
-          # Script.cpp - add functionStack
           path = 'RSDKv2/Script.cpp'
           with open(path) as f: content = f.read()
           if 'functionStack' not in content:
@@ -173,16 +114,7 @@ jobs:
           git clone --depth 1 --branch release-2.30.0 https://github.com/libsdl-org/SDL.git /tmp/SDL2
           cd /tmp/SDL2
           mkdir build-ios && cd build-ios
-          cmake .. \
-            -DCMAKE_SYSTEM_NAME=iOS \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} \
-            -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
-            -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/RSDKv2-Decompilation/ios-deps \
-            -DSDL_STATIC=ON \
-            -DSDL_SHARED=OFF \
-            -DSDL_TEST=OFF \
-            -DSDL_TESTS=OFF \
-            -DCMAKE_BUILD_TYPE=Release
+          cmake .. -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/RSDKv2-Decompilation/ios-deps -DSDL_STATIC=ON -DSDL_SHARED=OFF -DSDL_TEST=OFF -DSDL_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
           cmake --build . -j$(sysctl -n hw.ncpu)
           cmake --install .
 
