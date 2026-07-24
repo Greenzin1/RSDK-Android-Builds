@@ -161,9 +161,9 @@ jobs:
           git clone --depth 1 https://github.com/xiph/vorbis.git /tmp/vorbis
           cd /tmp/vorbis && mkdir build && cd build
           cmake .. -DCMAKE_TOOLCHAIN_FILE=$TC -DANDROID_ABI=${{ env.ABI }} -DANDROID_PLATFORM=android-${{ env.ANDROID_API }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$DEPS_DIR -DCMAKE_INSTALL_PREFIX=$DEPS_DIR -DOGG_INCLUDE_DIR=$DEPS_DIR/include -DOGG_LIBRARY=$DEPS_DIR/lib/${{ env.ABI }}/libogg.a -DBUILD_TESTING=OFF
-          cmake --build . -j$(nproc) --target vorbis vorbisfile && cmake --install .
+          cmake --build . -j$(nproc) --target vorbis vorbisfile vorbisenc && cmake --install .
           mkdir -p $DEPS_DIR/lib/${{ env.ABI }}
-          for lib in libogg.a libvorbis.a libvorbisfile.a; do
+          for lib in libogg.a libvorbis.a libvorbisfile.a libvorbisenc.a; do
             if [ -f $DEPS_DIR/lib/${{ env.ABI }}/$lib ]; then
               echo "$lib already in ABI dir"
             elif [ -f $DEPS_DIR/lib/$lib ]; then
