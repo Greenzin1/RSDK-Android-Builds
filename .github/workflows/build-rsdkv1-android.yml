@@ -48,17 +48,26 @@ jobs:
               ${SDL2_DIR}/include
               ${SDL2_DIR}/include/SDL2
           )
-          find_library(SDL2_LIB SDL2 PATHS ${SDL2_DIR}/lib/${ANDROID_ABI} NO_DEFAULT_PATH)
-          target_link_libraries(RetroEngine ${SDL2_LIB} log android)
 
-          set(OGG_DIR dependencies/${DEP_PATH}/libogg)
-          set(VORBIS_DIR dependencies/${DEP_PATH}/libvorbis)
-          target_include_directories(RetroEngine PRIVATE
-              ${OGG_DIR}/include
-              ${VORBIS_DIR}/include
-          )
-          set(COMPILE_OGG TRUE)
-          set(COMPILE_VORBIS TRUE)
+          # Pre-built static libs from android-deps
+          set(DEPS "${CMAKE_SOURCE_DIR}/android-deps")
+          add_library(ogg STATIC IMPORTED)
+          set_target_properties(ogg PROPERTIES IMPORTED_LOCATION ${DEPS}/lib/${ANDROID_ABI}/libogg.a)
+          target_include_directories(ogg INTERFACE ${DEPS}/include)
+
+          add_library(vorbis STATIC IMPORTED)
+          set_target_properties(vorbis PROPERTIES IMPORTED_LOCATION ${DEPS}/lib/${ANDROID_ABI}/libvorbis.a)
+          target_include_directories(vorbis INTERFACE ${DEPS}/include)
+
+          add_library(vorbisfile STATIC IMPORTED)
+          set_target_properties(vorbisfile PROPERTIES IMPORTED_LOCATION ${DEPS}/lib/${ANDROID_ABI}/libvorbisfile.a)
+          target_include_directories(vorbisfile INTERFACE ${DEPS}/include)
+
+          target_link_libraries(RetroEngine ogg vorbis vorbisfile log android)
+
+          # Disable bundled source compilation
+          set(COMPILE_OGG OFF CACHE BOOL "" FORCE)
+          set(COMPILE_VORBIS OFF CACHE BOOL "" FORCE)
 
           target_compile_definitions(RetroEngine PRIVATE RETRO_PLATFORM=RETRO_ANDROID)
 
