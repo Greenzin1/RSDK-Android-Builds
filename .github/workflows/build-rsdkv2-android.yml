@@ -301,8 +301,8 @@ jobs:
             /tmp/sdl2-java/org/libsdl/app/HIDDeviceUSB.java \
             /tmp/sdl2-java/org/libsdl/app/HIDDeviceBLESteamController.java \
             $APK/java/com/rsdkmodding/rsdkv2/RSDKv2.java 2>&1 || true
-          $BT/d8 --output /tmp/classes.dex $(find /tmp/classes -name "*.class") 2>&1
-          cd /tmp && zip -j unsigned.apk classes.dex
+          $BT/d8 --output /tmp/d8out $(find /tmp/classes -name "*.class") 2>&1
+          cd /tmp && zip -j unsigned.apk d8out/classes.dex
 
           # Align + sign
           $BT/zipalign -f 4 unsigned.apk aligned.apk
