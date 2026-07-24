@@ -64,6 +64,7 @@ jobs:
           target_include_directories(vorbisfile INTERFACE ${DEPS}/include)
 
           target_link_libraries(RetroEngine ogg vorbis vorbisfile log android)
+          target_include_directories(RetroEngine PRIVATE ${DEPS}/include)
 
           # Disable bundled source compilation
           set(COMPILE_OGG OFF CACHE BOOL "" FORCE)
