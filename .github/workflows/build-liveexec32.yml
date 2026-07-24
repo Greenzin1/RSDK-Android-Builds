@@ -37,6 +37,10 @@ jobs:
       - name: Create IPA
         working-directory: liveexec32
         run: |
+          # Copy dylib to Frameworks
+          mkdir -p .theos/_/Payload/LiveExec32.app/Frameworks/
+          cp lib/libdynarmic.dylib .theos/_/Payload/LiveExec32.app/Frameworks/
+          # Create IPA
           cd .theos/_
           zip -r ../../RSDKLegacy.ipa Payload/
           cd ../..
