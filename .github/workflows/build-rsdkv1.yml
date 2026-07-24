@@ -31,220 +31,99 @@ jobs:
       - name: Apply iOS platform support
         working-directory: RSDKv2-Decompilation
         run: |
-          python3 << 'PYEOF'
-          import re
+          cat > /tmp/patch_ios.py << 'PYEOF'
+          import re, os
 
-          # RetroEngine.hpp - add RETRO_iOS platform
-          path = "RSDKv2/RetroEngine.hpp"
-          with open(path) as f:
-              content = f.read()
-          ios_block = """
-  #if TARGET_OS_IPHONE
-  #define RETRO_PLATFORM   RETRO_iOS
-  #define RETRO_DEVICETYPE RETRO_MOBILE
-  #define RETRO_iOS        (6)
-  #endif
-  """
-          if "RETRO_iOS" not in content:
-              content = content.replace(
-                  "#ifndef RETRO_PLATFORM",
-                  ios_block + "\n#ifndef RETRO_PLATFORM"
-              )
-              with open(path, "w") as f:
-                  f.write(content)
-              print(f"Patched {path}: added RETRO_iOS platform")
+          def patch_file(path, old, new):
+              with open(path) as f: content = f.read()
+              if new.split('\n')[0] in content:
+                  print(f'  SKIP {path} (already patched)')
+                  return
+              if old not in content:
+                  print(f'  WARN {path}: pattern not found, skipping')
+                  return
+              content = content.replace(old, new)
+              with open(path, 'w') as f: f.write(content)
+              print(f'  OK   {path}')
 
-          # Userdata.cpp - add iOS Documents path
-          path = "RSDKv2/Userdata.cpp"
-          with open(path) as f:
-              content = f.read()
-          if "RETRO_iOS" not in content:
-              ios_userdata = """#if RETRO_PLATFORM == RETRO_iOS
-  #import <Foundation/Foundation.h>
-  static const char *getDocumentsPath() {
-      static NSString *_docsBuf = nil;
-      if (!_docsBuf) {
-          NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-          _docsBuf = [[paths firstObject] stringByAppendingString:@"/"];
-      }
-      return [_docsBuf UTF8String];
-  }
-  #endif
+          print('Applying iOS platform patches to RSDKv2...')
 
-  void InitUserdata() {
-  #if RETRO_PLATFORM == RETRO_iOS
-      StrCopy(gamePath, getDocumentsPath());
-  #elif RETRO_PLATFORM == RETRO_ANDROID"""
-              content = content.replace(
-                  "void InitUserdata() {\n",
-                  ios_userdata + "\n"
-              )
-              with open(path, "w") as f:
-                  f.write(content)
-              print(f"Patched {path}: added iOS Documents path")
+          # RetroEngine.hpp
+          patch_file('RSDKv2/RetroEngine.hpp',
+              '#ifndef RETRO_PLATFORM',
+              '#if TARGET_OS_IPHONE\n#define RETRO_PLATFORM   RETRO_iOS\n#define RETRO_DEVICETYPE RETRO_MOBILE\n#define RETRO_iOS        (6)\n#endif\n\n#ifndef RETRO_PLATFORM')
 
-          # RetroEngine.cpp - add iOS dataFile path
-          path = "RSDKv2/RetroEngine.cpp"
-          with open(path) as f:
-              content = f.read()
-          if "RETRO_iOS" not in content:
-              content = content.replace(
-                  "#elif RETRO_PLATFORM == RETRO_ANDROID",
-                  "#elif RETRO_PLATFORM == RETRO_iOS\n    StrCopy(dest, gamePath);\n    StrAdd(dest, Engine.dataFile);\n#elif RETRO_PLATFORM == RETRO_ANDROID"
-              )
-              with open(path, "w") as f:
-                  f.write(content)
-              print(f"Patched {path}: added iOS dataFile path")
+          # Userdata.cpp
+          patch_file('RSDKv2/Userdata.cpp',
+              'void InitUserdata() {',
+              '#if RETRO_PLATFORM == RETRO_iOS\n#import <Foundation/Foundation.h>\nstatic const char *getDocumentsPath() {\n    static NSString *_docsBuf = nil;\n    if (!_docsBuf) {\n        NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);\n        _docsBuf = [[paths firstObject] stringByAppendingString:@"/"];\n    }\n    return [_docsBuf UTF8String];\n}\n#endif\n\nvoid InitUserdata() {\n#if RETRO_PLATFORM == RETRO_iOS\n    StrCopy(gamePath, getDocumentsPath());\n#else')
 
-          # Ini.cpp - add iOS alongside macOS
-          path = "RSDKv2/Ini.cpp"
-          with open(path) as f:
-              content = f.read()
-          if "RETRO_iOS" not in content:
-              content = content.replace(
-                  "#elif RETRO_PLATFORM == RETRO_OSX",
-                  "#elif RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_iOS"
-              )
-              with open(path, "w") as f:
-                  f.write(content)
-              print(f"Patched {path}: added iOS to OSX path")
+          # RetroEngine.cpp
+          patch_file('RSDKv2/RetroEngine.cpp',
+              '#elif RETRO_PLATFORM == RETRO_ANDROID',
+              '#elif RETRO_PLATFORM == RETRO_iOS\n    StrCopy(dest, gamePath);\n    StrAdd(dest, Engine.dataFile);\n#elif RETRO_PLATFORM == RETRO_ANDROID')
 
-          # Debug.cpp - add iOS log path
-          path = "RSDKv2/Debug.cpp"
-          with open(path) as f:
-              content = f.read()
-          if "RETRO_iOS" not in content:
-              content = content.replace(
-                  "#elif RETRO_PLATFORM == RETRO_ANDROID",
-                  "#elif RETRO_PLATFORM == RETRO_iOS\n    sprintf(pathBuffer, \"%s/log.txt\", gamePath);\n#elif RETRO_PLATFORM == RETRO_ANDROID"
-              )
-              with open(path, "w") as f:
-                  f.write(content)
-              print(f"Patched {path}: added iOS log path")
+          # Ini.cpp
+          patch_file('RSDKv2/Ini.cpp',
+              '#elif RETRO_PLATFORM == RETRO_OSX',
+              '#elif RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_iOS')
 
-          # Reader.cpp - add iOS to file path resolution
-          path = "RSDKv2/Reader.cpp"
-          with open(path) as f:
-              content = f.read()
-          if "RETRO_iOS" not in content:
-              content = content.replace(
-                  "RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_ANDROID",
-                  "RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_ANDROID || RETRO_PLATFORM == RETRO_iOS"
-              )
-              with open(path, "w") as f:
-                  f.write(content)
-              print(f"Patched {path}: added iOS to reader path")
+          # Debug.cpp
+          patch_file('RSDKv2/Debug.cpp',
+              '#elif RETRO_PLATFORM == RETRO_ANDROID',
+              '#elif RETRO_PLATFORM == RETRO_iOS\n    sprintf(pathBuffer, \"%s/log.txt\", gamePath);\n#elif RETRO_PLATFORM == RETRO_ANDROID')
 
-          print("iOS platform patches applied successfully")
+          # Reader.cpp
+          patch_file('RSDKv2/Reader.cpp',
+              'RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_ANDROID',
+              'RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_ANDROID || RETRO_PLATFORM == RETRO_iOS')
+
+          print('iOS patches applied successfully')
           PYEOF
+          python3 /tmp/patch_ios.py
 
       - name: Apply RSDKv1 data format changes
         working-directory: RSDKv2-Decompilation
         run: |
-          python3 << 'PYEOF'
+          cat > /tmp/patch_rsdkv1.py << 'PYEOF'
           # Scene.cpp - RSDKv1 format changes
-          path = "RSDKv2/Scene.cpp"
-          with open(path) as f:
-              content = f.read()
+          path = 'RSDKv2/Scene.cpp'
+          with open(path) as f: content = f.read()
 
-          # 1. Add cameraLag variable near other globals
-          if "cameraLag" not in content:
-              content = content.replace(
-                  "int stageListPosition;",
-                  "int stageListPosition;\n\nint cameraLag = 0;"
-              )
-              print("Added cameraLag variable")
+          # 1. Add cameraLag variable
+          if 'cameraLag' not in content:
+              content = content.replace('int stageListPosition;', 'int stageListPosition;\n\nint cameraLag = 0;')
+              print('Added cameraLag variable')
 
-          # 2. Add GFX fallback for tile loading
-          # RSDKv1 tries GIF first, falls back to GFX
-          if "LoadStageGFXFile" not in content:
-              gfx_func = """
-  // RSDKv1: Load GFX tile file (RLE-compressed paletted images)
-  void LoadStageGFXFile(int listNo) {
-      int info = 0;
-      if (!OpenStageFile("16x16Tiles.gfx", listNo, &info))
-          return;
+          # 2. Add GFX fallback function
+          if 'LoadStageGFXFile' not in content:
+              gfx = '\nvoid LoadStageGFXFile(int listNo) {\n    int info = 0;\n    if (!OpenStageFile("16x16Tiles.gfx", listNo, &info))\n        return;\n    byte gfxWidth = 0;\n    byte gfxHeight = 0;\n    FileRead(&gfxWidth, 1);\n    FileRead(&gfxHeight, 1);\n    byte paletteSkip[765];\n    FileRead(paletteSkip, 765);\n    int x = 0, y = 0;\n    byte pixel = 0;\n    byte count = 0;\n    while (y < gfxHeight) {\n        FileRead(&pixel, 1);\n        if (pixel == 0xFF) {\n            FileRead(&pixel, 1);\n            FileRead(&count, 1);\n            for (int i = 0; i <= count; i++) {\n                x++;\n                if (x >= gfxWidth) { x = 0; y++; }\n            }\n        } else {\n            x++;\n            if (x >= gfxWidth) { x = 0; y++; }\n        }\n    }\n    CloseFile();\n}\n'
+              content = content.replace('int LoadStageFiles()', gfx + '\nint LoadStageFiles()')
+              print('Added LoadStageGFXFile function')
 
-      byte gfxWidth = 0;
-      byte gfxHeight = 0;
-      FileRead(&gfxWidth, 1);
-      FileRead(&gfxHeight, 1);
+          # 3. Add RSDKv1 chunk loading
+          if 'LoadStageChunks_RSDKv1' not in content:
+              chunk = '\nvoid LoadStageChunks_RSDKv1() {\n    byte entry[3];\n    for (int i = 0; i < 0x4000; ++i) {\n        if (FileRead(&entry, 3) == 0) break;\n        entry[0] -= (byte)((entry[0] >> 6) << 6);\n        tiles128x128.tileIndex[i] = entry[1] + (entry[0] << 8);\n        tiles128x128.gfxDataPos[i] = tiles128x128.tileIndex[i] << 8;\n        tiles128x128.direction[i]  = entry[2] >> 4;\n        tiles128x128.visualPlane[i] = (entry[2] >> 2) & 3;\n        tiles128x128.collisionFlag1[i] = entry[2] & 1;\n        tiles128x128.collisionFlag2[i] = (entry[2] >> 1) & 1;\n    }\n}\n'
+              content = content.replace('int LoadStageFiles()', chunk + '\nint LoadStageFiles()')
+              print('Added LoadStageChunks_RSDKv1 function')
 
-      // Skip palette (255 RGB triplets = 765 bytes)
-      byte paletteSkip[765];
-      FileRead(paletteSkip, 765);
-
-      // RLE decode pixel data
-      int x = 0, y = 0;
-      byte pixel = 0;
-      byte count = 0;
-      while (y < gfxHeight) {
-          FileRead(&pixel, 1);
-          if (pixel == 0xFF) {
-              FileRead(&pixel, 1);
-              FileRead(&count, 1);
-              for (int i = 0; i <= count; i++) {
-                  // Store pixel at tile position
-                  x++;
-                  if (x >= gfxWidth) { x = 0; y++; }
-              }
-          } else {
-              x++;
-              if (x >= gfxWidth) { x = 0; y++; }
-          }
-      }
-      CloseFile();
-  }
-  """
-              content = content.replace(
-                  "int LoadStageFiles()",
-                  gfx_func + "\nint LoadStageFiles()"
-              )
-              print("Added LoadStageGFXFile function")
-
-          # 3. Add RSDKv1 chunk loading with 3-byte entries
-          if "LoadStageChunks_RSDKv1" not in content:
-              chunk_func = """
-  // RSDKv1: Load chunks with 3-byte entries (10-bit tile index)
-  void LoadStageChunks_RSDKv1() {
-      byte entry[3];
-      for (int i = 0; i < 0x4000; ++i) {
-          if (FileRead(&entry, 3) == 0) break;
-          entry[0] -= (byte)((entry[0] >> 6) << 6);
-          tiles128x128.tileIndex[i] = entry[1] + (entry[0] << 8);
-          tiles128x128.gfxDataPos[i] = tiles128x128.tileIndex[i] << 8;
-          tiles128x128.direction[i]  = entry[2] >> 4;
-          tiles128x128.visualPlane[i] = (entry[2] >> 2) & 3;
-          tiles128x128.collisionFlag1[i] = entry[2] & 1;
-          tiles128x128.collisionFlag2[i] = (entry[2] >> 1) & 1;
-      }
-  }
-  """
-              content = content.replace(
-                  "int LoadStageFiles()",
-                  chunk_func + "\nint LoadStageFiles()"
-              )
-              print("Added LoadStageChunks_RSDKv1 function")
-
-          with open(path, "w") as f:
-              f.write(content)
-          print("RSDKv1 format changes applied to Scene.cpp")
+          with open(path, 'w') as f: f.write(content)
+          print('RSDKv1 format changes applied to Scene.cpp')
 
           # Script.cpp - add functionStack
-          path = "RSDKv2/Script.cpp"
-          with open(path) as f:
-              content = f.read()
-          if "functionStack" not in content:
+          path = 'RSDKv2/Script.cpp'
+          with open(path) as f: content = f.read()
+          if 'functionStack' not in content:
               content = content.replace(
-                  "int scriptData[0x40000];",
-                  "int scriptData[0x40000];\n\n// RSDKv1: function call stack\nint functionStack[0x100];\nint functionStackPos = 0;"
+                  'int scriptData[0x40000];',
+                  'int scriptData[0x40000];\n\nint functionStack[0x100];\nint functionStackPos = 0;'
               )
-              with open(path, "w") as f:
-                  f.write(content)
-              print("Added functionStack to Script.cpp")
+              with open(path, 'w') as f: f.write(content)
+              print('Added functionStack to Script.cpp')
 
-          print("RSDKv1 data format changes applied successfully")
+          print('RSDKv1 data format changes applied successfully')
           PYEOF
+          python3 /tmp/patch_rsdkv1.py
 
       - name: Build SDL2 for iOS
         run: |
@@ -267,31 +146,16 @@ jobs:
       - name: Build libogg + libvorbis for iOS
         run: |
           DEPS_DIR=${{ github.workspace }}/RSDKv2-Decompilation/ios-deps
-
-          # libogg
           git clone --depth 1 https://github.com/xiph/ogg.git /tmp/ogg
           cd /tmp/ogg && mkdir build && cd build
-          cmake .. \
-            -DCMAKE_SYSTEM_NAME=iOS \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} \
-            -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
-            -DCMAKE_INSTALL_PREFIX=$DEPS_DIR \
-            -DCMAKE_BUILD_TYPE=Release
+          cmake .. -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} -DCMAKE_INSTALL_PREFIX=$DEPS_DIR -DCMAKE_BUILD_TYPE=Release
           cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
-
-          # libvorbis
           git clone --depth 1 https://github.com/xiph/vorbis.git /tmp/vorbis
           cd /tmp/vorbis && mkdir build && cd build
-          cmake .. \
-            -DCMAKE_SYSTEM_NAME=iOS \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} \
-            -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
-            -DCMAKE_INSTALL_PREFIX=$DEPS_DIR \
-            -DCMAKE_PREFIX_PATH=$DEPS_DIR \
-            -DCMAKE_BUILD_TYPE=Release
+          cmake .. -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} -DCMAKE_INSTALL_PREFIX=$DEPS_DIR -DCMAKE_PREFIX_PATH=$DEPS_DIR -DCMAKE_BUILD_TYPE=Release
           cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
 
-      - name: Configure RSDKv1 (CMake for iOS)
+      - name: Configure and Build RSDKv1
         working-directory: RSDKv2-Decompilation
         run: |
           cmake -B build \
@@ -303,46 +167,33 @@ jobs:
             -DCMAKE_PREFIX_PATH="${{ github.workspace }}/RSDKv2-Decompilation/ios-deps" \
             -DRETRO_MOD_LOADER=OFF \
             -DFORCE_CASE_INSENSITIVE=ON
-
-      - name: Build RSDKv1
-        run: cmake --build RSDKv2-Decompilation/build -j$(sysctl -n hw.ncpu)
+          cmake --build build -j$(sysctl -n hw.ncpu)
 
       - name: Package IPA
         run: |
           mkdir -p Payload/RSDKv1.app
-
           BINARY=$(find RSDKv2-Decompilation/build -name "RSDKv2" -type f ! -name "*.a" ! -name "*.dylib" | head -1)
           if [ -z "$BINARY" ]; then
             echo "ERROR: RSDKv1 binary not found"
             find RSDKv2-Decompilation/build -type f -executable
             exit 1
           fi
-
           cp "$BINARY" Payload/RSDKv1.app/RSDKv1
-
           cat > Payload/RSDKv1.app/Info.plist << 'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
-            <key>CFBundleExecutable</key>
-            <string>RSDKv1</string>
-            <key>CFBundleIdentifier</key>
-            <string>com.rsdkmodding.rsdkv1</string>
-            <key>CFBundleName</key>
-            <string>Retro-Sonic</string>
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-            <key>CFBundleShortVersionString</key>
-            <string>1.0.0</string>
-            <key>CFBundleVersion</key>
-            <string>1</string>
-            <key>MinimumOSVersion</key>
-            <string>13.0</string>
+            <key>CFBundleExecutable</key><string>RSDKv1</string>
+            <key>CFBundleIdentifier</key><string>com.rsdkmodding.rsdkv1</string>
+            <key>CFBundleName</key><string>Retro-Sonic</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>1.0.0</string>
+            <key>CFBundleVersion</key><string>1</string>
+            <key>MinimumOSVersion</key><string>13.0</string>
           </dict>
           </plist>
           PLIST
-
           zip -r RSDKv1.ipa Payload
           echo "IPA size: $(du -h RSDKv1.ipa | cut -f1)"
 
