@@ -4,7 +4,6 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/build-rsdkv2.yml'
-      - 'patches/rsdkv2*'
   workflow_dispatch:
 
 env:
@@ -29,12 +28,84 @@ jobs:
           echo "CC=$(xcrun -find clang)" >> $GITHUB_ENV
           echo "CXX=$(xcrun -find clang++)" >> $GITHUB_ENV
 
-      - name: Apply iOS patches
+      - name: Apply iOS platform support
         working-directory: RSDKv2-Decompilation
         run: |
-          if [ -f "$GITHUB_WORKSPACE/patches/rsdkv2-ios.patch" ]; then
-            git apply "$GITHUB_WORKSPACE/patches/rsdkv2-ios.patch"
-          fi
+          python3 << 'PYEOF'
+          import re, os
+
+          def patch_file(path, old, new):
+              with open(path) as f: content = f.read()
+              if new.split('\n')[0] in content:
+                  print(f"  SKIP {path} (already patched)")
+                  return
+              if old not in content:
+                  print(f"  WARN {path}: pattern not found, skipping")
+                  return
+              content = content.replace(old, new)
+              with open(path, "w") as f: f.write(content)
+              print(f"  OK   {path}")
+
+          print("Applying iOS platform patches to RSDKv2...")
+
+          # RetroEngine.hpp
+          patch_file("RSDKv2/RetroEngine.hpp",
+              "#ifndef RETRO_PLATFORM",
+              """#if TARGET_OS_IPHONE
+#define RETRO_PLATFORM   RETRO_iOS
+#define RETRO_DEVICETYPE RETRO_MOBILE
+#define RETRO_iOS        (6)
+#endif
+
+#ifndef RETRO_PLATFORM""")
+
+          # Userdata.cpp
+          patch_file("RSDKv2/Userdata.cpp",
+              "void InitUserdata() {",
+              """#if RETRO_PLATFORM == RETRO_iOS
+#import <Foundation/Foundation.h>
+static const char *getDocumentsPath() {
+    static NSString *_docsBuf = nil;
+    if (!_docsBuf) {
+        NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+        _docsBuf = [[paths firstObject] stringByAppendingString:@"/"];
+    }
+    return [_docsBuf UTF8String];
+}
+#endif
+
+void InitUserdata() {
+#if RETRO_PLATFORM == RETRO_iOS
+    StrCopy(gamePath, getDocumentsPath());
+#else""")
+
+          # RetroEngine.cpp
+          patch_file("RSDKv2/RetroEngine.cpp",
+              "#elif RETRO_PLATFORM == RETRO_ANDROID",
+              """#elif RETRO_PLATFORM == RETRO_iOS
+    StrCopy(dest, gamePath);
+    StrAdd(dest, Engine.dataFile);
+#elif RETRO_PLATFORM == RETRO_ANDROID""")
+
+          # Ini.cpp
+          patch_file("RSDKv2/Ini.cpp",
+              "#elif RETRO_PLATFORM == RETRO_OSX",
+              "#elif RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_iOS")
+
+          # Debug.cpp
+          patch_file("RSDKv2/Debug.cpp",
+              "#elif RETRO_PLATFORM == RETRO_ANDROID",
+              """#elif RETRO_PLATFORM == RETRO_iOS
+    sprintf(pathBuffer, \"%s/log.txt\", gamePath);
+#elif RETRO_PLATFORM == RETRO_ANDROID""")
+
+          # Reader.cpp
+          patch_file("RSDKv2/Reader.cpp",
+              "RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_ANDROID",
+              "RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_ANDROID || RETRO_PLATFORM == RETRO_iOS")
+
+          print("iOS patches applied successfully")
+          PYEOF
 
       - name: Build SDL2 for iOS
         run: |
@@ -58,7 +129,6 @@ jobs:
         run: |
           DEPS_DIR=${{ github.workspace }}/RSDKv2-Decompilation/ios-deps
 
-          # libogg
           git clone --depth 1 https://github.com/xiph/ogg.git /tmp/ogg
           cd /tmp/ogg && mkdir build && cd build
           cmake .. \
@@ -69,7 +139,6 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
 
-          # libvorbis
           git clone --depth 1 https://github.com/xiph/vorbis.git /tmp/vorbis
           cd /tmp/vorbis && mkdir build && cd build
           cmake .. \
@@ -100,39 +169,28 @@ jobs:
       - name: Package IPA
         run: |
           mkdir -p Payload/RSDKv2.app
-
           BINARY=$(find RSDKv2-Decompilation/build -name "RSDKv2" -type f ! -name "*.a" ! -name "*.dylib" | head -1)
           if [ -z "$BINARY" ]; then
             echo "ERROR: RSDKv2 binary not found"
             find RSDKv2-Decompilation/build -type f -executable
             exit 1
           fi
-
           cp "$BINARY" Payload/RSDKv2.app/RSDKv2
-
           cat > Payload/RSDKv2.app/Info.plist << 'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
-            <key>CFBundleExecutable</key>
-            <string>RSDKv2</string>
-            <key>CFBundleIdentifier</key>
-            <string>com.rsdkmodding.rsdkv2</string>
-            <key>CFBundleName</key>
-            <string>RSDKv2</string>
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-            <key>CFBundleShortVersionString</key>
-            <string>1.0.0</string>
-            <key>CFBundleVersion</key>
-            <string>1</string>
-            <key>MinimumOSVersion</key>
-            <string>13.0</string>
+            <key>CFBundleExecutable</key><string>RSDKv2</string>
+            <key>CFBundleIdentifier</key><string>com.rsdkmodding.rsdkv2</string>
+            <key>CFBundleName</key><string>RSDKv2</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>1.0.0</string>
+            <key>CFBundleVersion</key><string>1</string>
+            <key>MinimumOSVersion</key><string>13.0</string>
           </dict>
           </plist>
           PLIST
-
           zip -r RSDKv2.ipa Payload
           echo "IPA size: $(du -h RSDKv2.ipa | cut -f1)"
 

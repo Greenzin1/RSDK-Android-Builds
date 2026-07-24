@@ -66,16 +66,8 @@ All workflows use `macos-14` (Apple Silicon) runners and build the following fro
 - **libogg** + **libvorbis** (+ **libtheora** for v3/v5) — audio/video codecs
 - **tinyxml2** (v4/v5 only) — config file parsing
 
-## Patches
+## How It Works
 
-The `patches/` directory contains patches for each engine:
+Each workflow clones the upstream decompilation repo and applies iOS platform changes via inline Python scripts during the build. No patch files needed — the modifications are applied directly to the source code in the workflow.
 
-| Patch | Description |
-|-------|-------------|
-| `rsdkv1-format.patch` | RSDKv1 data format support (3-byte chunks, GFX fallback, camera lag) |
-| `rsdkv1-ios.patch` | iOS platform support for RSDKv1 |
-| `rsdkv2-ios.patch` | iOS platform support for RSDKv2 |
-| `rsdkv3-ios.patch` | iOS platform support for RSDKv3 |
-| `rsdkv4-ios.patch` | iOS platform support for RSDKv4 |
-
-iOS patches add `RETRO_PLATFORM == RETRO_iOS` code paths that map to existing macOS/Android paths with mobile-specific adjustments (Documents directory, RGBA video, etc.).
+For RSDKv1, the workflow clones RSDKv2-Decompilation and applies RSDKv1 data format changes (3-byte chunk tiles, GFX fallback, camera lag) on top of the iOS platform patches.
