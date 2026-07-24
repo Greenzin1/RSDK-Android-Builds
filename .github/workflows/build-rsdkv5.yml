@@ -68,6 +68,7 @@ jobs:
             -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
             -DCMAKE_INSTALL_PREFIX=$DEPS_DIR \
             -DCMAKE_PREFIX_PATH=$DEPS_DIR \
+            -DCMAKE_FIND_ROOT_PATH=$DEPS_DIR \
             -DCMAKE_BUILD_TYPE=Release
           cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
 
@@ -79,6 +80,7 @@ jobs:
             -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
             -DCMAKE_INSTALL_PREFIX=$DEPS_DIR \
             -DCMAKE_PREFIX_PATH=$DEPS_DIR \
+            -DCMAKE_FIND_ROOT_PATH=$DEPS_DIR \
             -DWITH_OGG=ON \
             -DWITH_VORBIS=ON \
             -DWITH_EXAMPLES=OFF \
