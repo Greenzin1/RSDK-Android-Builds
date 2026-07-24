@@ -54,6 +54,7 @@ jobs:
                   "-framework CoreAudio"
                   "-framework CoreBluetooth"
                   "-framework CoreGraphics"
+                  "-framework CoreHaptics"
                   "-framework CoreMotion"
                   "-framework Foundation"
                   "-framework GameController"
