@@ -49,7 +49,10 @@ jobs:
       - name: Build libogg + libvorbis + libtheora for iOS
         run: |
           DEPS_DIR=${{ github.workspace }}/RSDKv5-Decompilation/ios-deps
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          FLAGS="-arch ${{ env.ARCH }} -isysroot $SDK -miphoneos-version-min=${{ env.IOS_MIN_VERSION }}"
 
+          # Build libogg (cmake)
           git clone --depth 1 https://github.com/xiph/ogg.git /tmp/ogg
           cd /tmp/ogg && mkdir build && cd build
           cmake .. \
@@ -60,6 +63,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
 
+          # Build libvorbis (cmake)
           git clone --depth 1 https://github.com/xiph/vorbis.git /tmp/vorbis
           cd /tmp/vorbis && mkdir build && cd build
           cmake .. \
@@ -72,20 +76,23 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
 
+          # Build libtheora (autotools - no CMakeLists.txt in theora)
           git clone --depth 1 https://github.com/xiph/theora.git /tmp/theora
-          cd /tmp/theora && mkdir build && cd build
-          cmake .. \
-            -DCMAKE_SYSTEM_NAME=iOS \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.IOS_MIN_VERSION }} \
-            -DCMAKE_OSX_ARCHITECTURES=${{ env.ARCH }} \
-            -DCMAKE_INSTALL_PREFIX=$DEPS_DIR \
-            -DCMAKE_PREFIX_PATH=$DEPS_DIR \
-            -DCMAKE_FIND_ROOT_PATH=$DEPS_DIR \
-            -DWITH_OGG=ON \
-            -DWITH_VORBIS=ON \
-            -DWITH_EXAMPLES=OFF \
-            -DCMAKE_BUILD_TYPE=Release
-          cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
+          cd /tmp/theora
+          brew install automake libtool pkg-config || true
+          ./autogen.sh
+          ./configure \
+            --host=arm-apple-darwin \
+            --prefix=$DEPS_DIR \
+            --disable-shared \
+            --enable-static \
+            --disable-examples \
+            --disable-doc \
+            --disable-spec \
+            CFLAGS="$FLAGS" \
+            LDFLAGS="$FLAGS" \
+            PKG_CONFIG_PATH="$DEPS_DIR/lib/pkgconfig"
+          make -j$(sysctl -n hw.ncpu) && make install
 
       - name: Build tinyxml2 for iOS
         run: |
@@ -139,13 +146,39 @@ jobs:
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
+            <key>CFBundleDevelopmentRegion</key><string>en</string>
+            <key>CFBundleDisplayName</key><string>Sonic Mania</string>
             <key>CFBundleExecutable</key><string>RSDKv5</string>
             <key>CFBundleIdentifier</key><string>com.rsdkmodding.rsdkv5</string>
-            <key>CFBundleName</key><string>RSDKv5</string>
+            <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+            <key>CFBundleName</key><string>Sonic Mania</string>
             <key>CFBundlePackageType</key><string>APPL</string>
             <key>CFBundleShortVersionString</key><string>1.0.0</string>
             <key>CFBundleVersion</key><string>1</string>
+            <key>DTPlatformName</key><string>iphoneos</string>
+            <key>DTSDKName</key><string>iphoneos17.5</string>
+            <key>LSRequiresIPhoneOS</key><true/>
             <key>MinimumOSVersion</key><string>13.0</string>
+            <key>UIDeviceFamily</key>
+            <array>
+              <integer>1</integer>
+              <integer>2</integer>
+            </array>
+            <key>UIRequiresFullScreen</key><true/>
+            <key>UILaunchStoryboardName</key><string></string>
+            <key>UIRequiredDeviceCapabilities</key>
+            <array>
+              <string>arm64</string>
+            </array>
+            <key>UISupportedInterfaceOrientations</key>
+            <array>
+              <string>UIInterfaceOrientationLandscapeLeft</string>
+              <string>UIInterfaceOrientationLandscapeRight</string>
+            </array>
+            <key>CFBundleSupportedPlatforms</key>
+            <array>
+              <string>iPhoneOS</string>
+            </array>
           </dict>
           </plist>
           PLIST
