@@ -53,9 +53,7 @@ jobs:
               set(COMPILE_VORBIS TRUE)
           endif()
 
-          if(RETRO_USE_MOD_LOADER)
-              set_target_properties(RetroEngine PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
-          endif()
+          set_target_properties(RetroEngine PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
           EOF
 
       - name: Fix cocoaHelpers for iOS
