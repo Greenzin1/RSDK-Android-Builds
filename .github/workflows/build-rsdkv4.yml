@@ -141,7 +141,7 @@ jobs:
           SDK=$(xcrun --sdk iphoneos --show-sdk-path)
           FLAGS="-arch ${{ env.ARCH }} -isysroot $SDK -miphoneos-version-min=${{ env.IOS_MIN_VERSION }} -std=gnu++14 -fexceptions -frtti -O2"
           INCS="-I$(pwd)/RSDKv4 -I$(pwd)/RSDKv4/NativeObjects -Iios-deps/include -Iios-deps/include/SDL2 -Iios-deps/include/vorbis -Iios-deps/include/ogg -Idependencies/mac"
-          DEFS="-DRETRO_USING_OPENGL=0 -DRETRO_USE_MOD_LOADER=0 -DRETRO_USE_ORIGINAL_CODE=0"
+          DEFS="-DRETRO_USING_OPENGL=0 -DRETRO_USE_MOD_LOADER=0 -DRETRO_USE_ORIGINAL_CODE=0 -D__IPHONEOS__=1"
           OUTDIR=/tmp/missing_objs
           mkdir -p $OUTDIR
 
@@ -168,7 +168,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             LIBRARY_SEARCH_PATHS="$(pwd)/dependencies/ios $(pwd)/ios-deps/lib $(pwd)/ios-deps /tmp/missing_objs" \
             HEADER_SEARCH_PATHS="$(pwd)/ios-deps/include $(pwd)/ios-deps/include/SDL2 $(pwd)/ios-deps/include/vorbis $(pwd)/ios-deps/include/ogg $(pwd)/RSDKv4 $(pwd)/RSDKv4/NativeObjects $(pwd)/dependencies/all/theoraplay" \
-            'GCC_PREPROCESSOR_DEFINITIONS=RETRO_USING_OPENGL=0 RETRO_USE_MOD_LOADER=0 RETRO_USE_ORIGINAL_CODE=0 $(inherited)' \
+            'GCC_PREPROCESSOR_DEFINITIONS=RETRO_USING_OPENGL=0 RETRO_USE_MOD_LOADER=0 RETRO_USE_ORIGINAL_CODE=0 __IPHONEOS__=1 $(inherited)' \
             OTHER_CFLAGS="-Wno-deprecated-declarations -include $(pwd)/dependencies/mac/cocoaHelpers.hpp" \
             OTHER_LDFLAGS="-lMissing -framework AVFoundation -framework AudioToolbox -framework CoreAudio -framework CoreBluetooth -framework CoreGraphics -framework CoreHaptics -framework CoreMotion -framework Foundation -framework GameController -framework Metal -framework OpenGLES -framework QuartzCore -framework UIKit"
 
