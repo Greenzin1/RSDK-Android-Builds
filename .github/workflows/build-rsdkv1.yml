@@ -33,29 +33,28 @@ jobs:
         run: |
           mkdir -p platforms
           cat > platforms/iOS.cmake << 'EOF'
-          find_library(OGG_LIB ogg)
-          find_library(VORBIS_LIB vorbis)
-          find_library(VORBISFILE_LIB vorbisfile)
-          find_library(SDL2_LIB SDL2)
-
           add_executable(RetroEngine ${RETRO_FILES})
 
-          if(OGG_LIB AND VORBIS_LIB AND VORBISFILE_LIB)
-              target_link_libraries(RetroEngine ${OGG_LIB} ${VORBIS_LIB} ${VORBISFILE_LIB})
+          if(EXISTS "${CMAKE_PREFIX_PATH}")
+              set(DEPS "${CMAKE_PREFIX_PATH}")
+              target_include_directories(RetroEngine PRIVATE
+                  ${DEPS}/include
+                  ${DEPS}/include/SDL2
+                  ${DEPS}/include/ogg
+                  ${DEPS}/include/vorbis
+              )
+              file(GLOB SDL2_LIBS "${DEPS}/lib/libSDL2*.a")
+              file(GLOB OGG_LIBS "${DEPS}/lib/libogg.a")
+              file(GLOB VORBIS_LIBS "${DEPS}/lib/libvorbis.a")
+              file(GLOB VORBISFILE_LIBS "${DEPS}/lib/libvorbisfile.a")
+              target_link_libraries(RetroEngine ${SDL2_LIBS} ${OGG_LIBS} ${VORBIS_LIBS} ${VORBISFILE_LIBS})
           else()
               set(COMPILE_OGG TRUE)
               set(COMPILE_VORBIS TRUE)
           endif()
 
-          if(SDL2_LIB)
-              target_link_libraries(RetroEngine ${SDL2_LIB})
-          endif()
-
           if(RETRO_USE_MOD_LOADER)
-              set_target_properties(RetroEngine PROPERTIES
-                  CXX_STANDARD 17
-                  CXX_STANDARD_REQUIRED ON
-              )
+              set_target_properties(RetroEngine PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
           endif()
           EOF
 
