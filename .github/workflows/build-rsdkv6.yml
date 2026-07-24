@@ -1,0 +1,51 @@
+name: Build RSDKv6 Extractor (Penny's Big Breakaway)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-rsdkv6.yml'
+  workflow_dispatch:
+
+# ⚠️ WARNING: This might be made private. idk if Evening Star will like this.
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
+          rustup target add aarch64-unknown-linux-gnu
+
+      - name: Clone rsdkv6-extract
+        run: |
+          git clone https://github.com/RSDKModding/rsdkv6-extract.git
+          cd rsdkv6-extract
+          git log --oneline -5
+
+      - name: Build rsdkv6-extract
+        working-directory: rsdkv6-extract
+        run: |
+          source $HOME/.cargo/env
+          cargo build --release
+          ls -la target/release/
+
+      - name: Package
+        working-directory: rsdkv6-extract
+        run: |
+          mkdir -p artifact
+          cp target/release/rsdkv6-extract artifact/
+          cp filelist.txt artifact/
+          cp packnames.txt artifact/
+          cp maybe.txt artifact/
+          cd artifact && tar czf ../rsdkv6-extract-linux-x64.tar.gz *
+          echo "Archive size: $(du -h ../rsdkv6-extract-linux-x64.tar.gz | cut -f1)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RSDKv6-Extractor
+          path: rsdkv6-extract-linux-x64.tar.gz
+          retention-days: 30

@@ -159,6 +159,14 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           cmake --build . -j$(sysctl -n hw.ncpu) && cmake --install .
 
+      - name: Create SDLMain stub
+        working-directory: RSDKv3-Decompilation
+        run: |
+          mkdir -p dependencies/ios
+          echo 'void SDLMain_stub(void){}' > /tmp/sdlmain.c
+          xcrun -sdk iphoneos clang -arch ${{ env.ARCH }} -miphoneos-version-min=${{ env.IOS_MIN_VERSION }} -c /tmp/sdlmain.c -o /tmp/sdlmain.o
+          ar rcs dependencies/ios/libSDLMain.a /tmp/sdlmain.o
+
       - name: Build ModAPI stub
         run: |
           cd RSDKv3-Decompilation

@@ -116,11 +116,6 @@ jobs:
       - name: Create iOS CMakeLists.txt (Android one won't work)
         working-directory: RSDKv5-Decompilation
         run: |
-          # Download libogg sources (gitignored in repo)
-          mkdir -p dependencies/android/libogg/src
-          curl -sL https://raw.githubusercontent.com/xiph/ogg/master/src/bitwise.c -o dependencies/android/libogg/src/bitwise.c
-          curl -sL https://raw.githubusercontent.com/xiph/ogg/master/src/framing.c -o dependencies/android/libogg/src/framing.c
-
           # Download tinyxml2 (gitignored in repo)
           mkdir -p dependencies/all/tinyxml2
           curl -sL https://raw.githubusercontent.com/leethomason/tinyxml2/master/tinyxml2.cpp -o dependencies/all/tinyxml2/tinyxml2.cpp
@@ -134,12 +129,6 @@ jobs:
           set(CMAKE_C_STANDARD 11)
 
           set(DEPS_DIR ${CMAKE_SOURCE_DIR}/ios-deps)
-
-          add_library(libogg STATIC
-              dependencies/android/libogg/src/bitwise.c
-              dependencies/android/libogg/src/framing.c
-          )
-          target_include_directories(libogg PRIVATE dependencies/android/libogg/include)
 
           add_executable(RetroEngine
               RSDKv5/main.cpp
@@ -180,8 +169,6 @@ jobs:
               RSDKv5/
               ${DEPS_DIR}/include
               ${DEPS_DIR}/include/SDL2
-              dependencies/android/libogg/include/
-              dependencies/android/libtheora/include/
               dependencies/all/
               dependencies/all/tinyxml2/
               dependencies/all/iniparser/
@@ -197,8 +184,8 @@ jobs:
           target_compile_options(RetroEngine PRIVATE -fexceptions -frtti)
 
           target_link_libraries(RetroEngine
-              libogg
               "-L${DEPS_DIR}/lib"
+              "-logg"
               "-ltheora"
               "-ltheoradec"
               "-lSDL2"
