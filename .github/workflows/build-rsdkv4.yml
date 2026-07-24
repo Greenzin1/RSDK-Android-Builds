@@ -135,12 +135,50 @@ jobs:
       - name: Create Data.rsdk placeholder
         run: touch RSDKv4-Decompilation/dependencies/ios/Data.rsdk
 
+      - name: Create cocoaHelpers for iOS
+        working-directory: RSDKv4-Decompilation
+        run: |
+          mkdir -p dependencies/mac
+          cat > dependencies/mac/cocoaHelpers.hpp << 'H'
+          #ifndef COCOAHELPERS_HPP
+          #define COCOAHELPERS_HPP
+          void getResourcesPath(char* buffer, int bufferSize);
+          const char *getDocumentsPath();
+          #endif
+          H
+          cat > dependencies/mac/cocoaHelpers.mm << 'M'
+          #ifdef __APPLE__
+          #import <Foundation/Foundation.h>
+          #include "cocoaHelpers.hpp"
+          const char *getDocumentsPath() {
+              static NSString *path = nil;
+              if (!path) {
+                  NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+                  path = [[paths firstObject] stringByAppendingString:@"/"];
+              }
+              return [path UTF8String];
+          }
+          void getResourcesPath(char* buffer, int bufferSize) {
+              @autoreleasepool {
+                  NSString *appFolder = [NSBundle.mainBundle.bundlePath stringByDeletingLastPathComponent];
+                  NSString *dataFile = [appFolder stringByAppendingString:@"/Data.rsdk"];
+                  if([NSFileManager.defaultManager fileExistsAtPath:dataFile]){
+                      [appFolder getCString:buffer maxLength:bufferSize encoding:NSUTF8StringEncoding];
+                      return;
+                  }
+                  NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+                  [[paths firstObject] getCString:buffer maxLength:bufferSize encoding:NSUTF8StringEncoding];
+              }
+          }
+          #endif
+          M
+
       - name: Compile missing source files (Renderer, Networking, NativeObjects)
         working-directory: RSDKv4-Decompilation
         run: |
           SDK=$(xcrun --sdk iphoneos --show-sdk-path)
           FLAGS="-arch ${{ env.ARCH }} -isysroot $SDK -miphoneos-version-min=${{ env.IOS_MIN_VERSION }} -std=gnu++14 -fexceptions -frtti -O2"
-          INCS="-I$(pwd)/RSDKv4 -I$(pwd)/RSDKv4/NativeObjects -Iios-deps/include -Iios-deps/include/SDL2 -Iios-deps/include/vorbis -Iios-deps/include/ogg"
+          INCS="-I$(pwd)/RSDKv4 -I$(pwd)/RSDKv4/NativeObjects -Iios-deps/include -Iios-deps/include/SDL2 -Iios-deps/include/vorbis -Iios-deps/include/ogg -Idependencies/mac"
           DEFS="-DRETRO_USING_OPENGL=0 -DRETRO_USE_MOD_LOADER=0 -DRETRO_USE_ORIGINAL_CODE=0"
           OUTDIR=/tmp/missing_objs
           mkdir -p $OUTDIR

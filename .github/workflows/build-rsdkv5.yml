@@ -137,6 +137,9 @@ jobs:
           # Replace ShowErrorDialog calls with empty blocks (not declared in this fork, need braces because some are if-bodies)
           sed -i '' 's/RenderDevice::ShowErrorDialog(.*/{ }/g' RSDKv5/RSDK/Core/RetroEngine.cpp
 
+          # Guard Windows-only code in ModAPI.cpp (winrt, etc.)
+          sed -i '' '/winrt::Windows::Devices::Input::TouchCapabilities/s/^/\/\/ /' RSDKv5/RSDK/Core/ModAPI.cpp
+
           # Create cocoaHelpers.hpp for iOS (missing from repo)
           cat > RSDKv5/cocoaHelpers.hpp << 'COCOA'
           #ifndef COCOAHELPERS_HPP

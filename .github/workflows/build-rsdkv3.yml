@@ -182,10 +182,17 @@ jobs:
           mkdir -p dependencies/ios/SDL2.framework/Headers
           cp ios-deps/lib/libSDL2.a dependencies/ios/SDL2.framework/SDL2
           cp ios-deps/include/SDL2/*.h dependencies/ios/SDL2.framework/Headers/
-          # Ogg, Vorbis, Theora frameworks
+          # Ogg, Vorbis, Theora frameworks — merge all static libs per framework
           for name in Ogg Vorbis Theora; do
             mkdir -p "dependencies/ios/${name}.framework/Headers"
-            cp "ios-deps/lib/lib${name}.a" "dependencies/ios/${name}.framework/${name}"
+            # Merge all related .a files
+            ALL_LIBS=""
+            for lib in ios-deps/lib/lib${name}*.a; do
+              [ -f "$lib" ] && ALL_LIBS="$ALL_LIBS $lib"
+            done
+            if [ -n "$ALL_LIBS" ]; then
+              xcrun -sdk iphoneos ar crus "dependencies/ios/${name}.framework/${name}" $ALL_LIBS
+            fi
           done
           cp ios-deps/include/ogg/* dependencies/ios/Ogg.framework/Headers/ 2>/dev/null || true
           cp ios-deps/include/vorbis/* dependencies/ios/Vorbis.framework/Headers/ 2>/dev/null || true
@@ -210,6 +217,24 @@ jobs:
       - name: Create Data.rsdk placeholder
         run: touch RSDKv3-Decompilation/dependencies/ios/Data.rsdk
 
+      - name: Compile ModAPI.cpp (not in Xcode project)
+        working-directory: RSDKv3-Decompilation
+        run: |
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          xcrun -sdk iphoneos clang++ \
+            -arch ${{ env.ARCH }} \
+            -isysroot $SDK \
+            -miphoneos-version-min=${{ env.IOS_MIN_VERSION }} \
+            -std=gnu++14 -fexceptions -frtti -O2 \
+            -I$(pwd)/RSDKv3 -I$(pwd)/SonicCDDecomp \
+            -Iios-deps/include -Iios-deps/include/SDL2 \
+            -Iios-deps/include/vorbis -Iios-deps/include/ogg \
+            -Iios-deps/include/theora \
+            -Idependencies/all/theoraplay \
+            -DRETRO_USING_OPENGL=0 -DRETRO_USE_MOD_LOADER=0 -DRETRO_USE_ORIGINAL_CODE=0 \
+            -c RSDKv3/ModAPI.cpp -o /tmp/ModAPI.o
+          ar rcs dependencies/ios/libModAPI.a /tmp/ModAPI.o
+
       - name: Build RSDKv3
         working-directory: RSDKv3-Decompilation
         run: |
@@ -222,7 +247,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             FRAMEWORK_SEARCH_PATHS="$(pwd)/dependencies/ios" \
             LIBRARY_SEARCH_PATHS="$(pwd)/dependencies/ios $(pwd)/ios-deps/lib $(pwd)/ios-deps" \
-            OTHER_LDFLAGS="-lModAPIStub -ltinyxml2 -framework AVFoundation -framework AudioToolbox -framework CoreAudio -framework CoreBluetooth -framework CoreGraphics -framework CoreHaptics -framework CoreMotion -framework Foundation -framework GameController -framework Metal -framework OpenGLES -framework QuartzCore -framework UIKit" \
+            OTHER_LDFLAGS="-lModAPIStub -lModAPI -ltinyxml2 -framework AVFoundation -framework AudioToolbox -framework CoreAudio -framework CoreBluetooth -framework CoreGraphics -framework CoreHaptics -framework CoreMotion -framework Foundation -framework GameController -framework Metal -framework OpenGLES -framework QuartzCore -framework UIKit" \
             HEADER_SEARCH_PATHS="$(pwd)/ios-deps/include $(pwd)/ios-deps/include/SDL2 $(pwd)/ios-deps/include/vorbis $(pwd)/ios-deps/include/ogg $(pwd)/ios-deps/include/theora $(pwd)/ios-deps/include/tinyxml2 $(pwd)/SonicCDDecomp $(pwd)/dependencies/all/theoraplay" \
             'GCC_PREPROCESSOR_DEFINITIONS=RETRO_USING_OPENGL=0 RETRO_USE_MOD_LOADER=0 RETRO_USE_ORIGINAL_CODE=0 $(inherited)' \
             OTHER_CFLAGS="-Wno-deprecated-declarations -Wno-nonportable-include-path"
