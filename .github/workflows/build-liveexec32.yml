@@ -1,0 +1,47 @@
+name: Build liveexec32
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'liveexec32/**'
+      - '.github/workflows/build-liveexec32.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Theos
+        run: |
+          git clone --recursive https://github.com/theos/theos.git $THEOS
+          export PATH="$THEOS/bin:$PATH"
+          echo "THEOS=$THEOS" >> $GITHUB_ENV
+          echo "$THEOS/bin" >> $GITHUB_PATH
+
+      - name: Setup iPhone SDK
+        run: |
+          $THEOS/bin/install-theos
+
+      - name: Build LiveExec32
+        working-directory: liveexec32
+        run: |
+          export THEOS="$HOME/theos"
+          export PATH="$THEOS/bin:$PATH"
+          make package
+
+      - name: Find IPA
+        working-directory: liveexec32
+        run: |
+          find . -name "*.ipa" -type f
+          ls -la .theos/_/Applications/ 2>/dev/null || true
+          ls -la .theos/obj/ 2>/dev/null || true
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: liveexec32
+          path: liveexec32/.theos/_/Applications/*.ipa
+          if-no-files-found: warn
