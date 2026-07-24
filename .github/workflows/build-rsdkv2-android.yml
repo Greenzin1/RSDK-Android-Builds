@@ -31,7 +31,7 @@ jobs:
 
       - name: Install NDK
         run: |
-          sdkmanager "ndk;${{ env.ANDROID_NDK_VERSION }}" "build-tools;${{ env.ANDROID_BUILD_TOOLS }}" "platforms;android-${{ env.ANDROID_API }}"
+          sdkmanager "ndk;${{ env.ANDROID_NDK_VERSION }}" "build-tools;${{ env.ANDROID_BUILD_TOOLS }}" "platforms;android-${{ env.ANDROID_API }}" "platforms;android-28"
           echo "NDK_PATH=$ANDROID_HOME/ndk/${{ env.ANDROID_NDK_VERSION }}" >> $GITHUB_ENV
 
       - name: Clone RSDKv2
@@ -290,7 +290,8 @@ jobs:
 
           # Compile SDL2 Java + custom Activity
           mkdir -p /tmp/classes
-          javac -source 11 -target 11 -cp $AJAR -d /tmp/classes \
+          JAR28="$ANDROID_HOME/platforms/android-28/android.jar"
+          javac -source 11 -target 11 -cp $JAR28 -d /tmp/classes \
             /tmp/sdl2-java/org/libsdl/app/*.java \
             $APK/java/com/rsdkmodding/rsdkv2/RSDKv2.java 2>&1
           $BT/d8 --output /tmp/classes.dex /tmp/classes/org/libsdl/app/*.class /tmp/classes/com/rsdkmodding/rsdkv2/*.class 2>&1
