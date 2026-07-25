@@ -160,6 +160,24 @@ jobs:
           with open(scene_path, 'w') as f: f.write(scene)
           print('Fixed dest buffer overflow in Scene.cpp (LoadActFile + LoadStageFile)')
 
+          # Enable devMenu by default on Android
+          with open('RSDKv2/RetroEngine.cpp') as f: eng = f.read()
+          eng = eng.replace(
+              'bool RetroEngine::LoadGameConfig(const char *filePath) {',
+              '#if RETRO_PLATFORM == RETRO_ANDROID\nstatic bool _devMenuSet = false;\n#endif\nbool RetroEngine::LoadGameConfig(const char *filePath) {'
+          )
+          with open('RSDKv2/RetroEngine.cpp', 'w') as f: f.write(eng)
+          print('Added devMenu init hook for Android')
+
+          # Patch main.cpp to enable devMenu on Android
+          with open('RSDKv2/main.cpp') as f: main_cpp = f.read()
+          main_cpp = main_cpp.replace(
+              'Engine.devMenu        = true;',
+              'Engine.devMenu        = true;\n#endif\n#if RETRO_PLATFORM == RETRO_ANDROID\n    Engine.devMenu = true;'
+          )
+          with open('RSDKv2/main.cpp', 'w') as f: f.write(main_cpp)
+          print('Enabled devMenu by default on Android')
+
           # Patch RetroEngine.cpp to use getDocumentsPath() on Android for data file
           path2 = 'RSDKv2/RetroEngine.cpp'
           with open(path2) as f: c = f.read()
@@ -376,8 +394,9 @@ jobs:
               private static final int SCAN_S = 22;
               private static final int SCAN_D = 7;
               private static final int SCAN_RETURN = 40;
+              private static final int SCAN_ESC = 41;
 
-              private boolean[] zonePressed = new boolean[8];
+              private boolean[] zonePressed = new boolean[9];
               private static final int ZONE_UP = 0;
               private static final int ZONE_DOWN = 1;
               private static final int ZONE_LEFT = 2;
@@ -386,6 +405,7 @@ jobs:
               private static final int ZONE_B = 5;
               private static final int ZONE_C = 6;
               private static final int ZONE_START = 7;
+              private static final int ZONE_ESC = 8;
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
@@ -443,6 +463,8 @@ jobs:
               private int getZone(float x, float y, int w, int h) {
                   float nx = x / w;
                   float ny = y / h;
+                  // ESC button (top-right corner)
+                  if (nx > 0.85f && ny < 0.12f) return ZONE_ESC;
                   if (nx > 0.65f) {
                       if (ny < 0.35f) return ZONE_B;
                       if (ny < 0.65f) return ZONE_A;
@@ -476,6 +498,7 @@ jobs:
                       case ZONE_B: scancode = SCAN_S; break;
                       case ZONE_C: scancode = SCAN_D; break;
                       case ZONE_START: scancode = SCAN_RETURN; break;
+                      case ZONE_ESC: scancode = SCAN_ESC; break;
                       default: return;
                   }
                   if (pressed) nativeSetKeyState(scancode, 1);
@@ -600,6 +623,15 @@ jobs:
                       RectF startRect = new RectF(startX - startW, startY - startH, startX + startW, startY + startH);
                       canvas.drawRoundRect(startRect, 20, 20, zonePressed[ZONE_START] ? btnPressedPaint : btnPaint);
                       canvas.drawText("START", startX, startY + 14, textPaint);
+
+                      // ESC button (top-right corner)
+                      float escX = w * 0.92f;
+                      float escY = h * 0.06f;
+                      float escRadius = Math.min(w, h) * 0.04f;
+                      canvas.drawCircle(escX, escY, escRadius, zonePressed[ZONE_ESC] ? btnPressedPaint : btnPaint);
+                      textPaint.setTextSize(20);
+                      canvas.drawText("ESC", escX, escY + 7, textPaint);
+                      textPaint.setTextSize(36);
                   }
               }
           }
