@@ -138,6 +138,20 @@ jobs:
           )
           with open(path, 'w') as f: f.write(content)
           print('RetroEngine.hpp patched for Android')
+
+          # Patch RetroEngine.cpp to use getDocumentsPath() on Android for data file
+          path2 = 'RSDKv2/RetroEngine.cpp'
+          with open(path2) as f: c = f.read()
+          c = c.replace(
+              '#else\n    StrCopy(dest, BASE_PATH);\n    StrAdd(dest, Engine.dataFile);\n#endif\n    CheckBinFile(dest);',
+              '#elif RETRO_PLATFORM == RETRO_ANDROID\n    StrCopy(dest, getDocumentsPath());\n    StrAdd(dest, Engine.dataFile);\n#else\n    StrCopy(dest, BASE_PATH);\n    StrAdd(dest, Engine.dataFile);\n#endif\n    CheckBinFile(dest);'
+          )
+          c = c.replace(
+              'sprintf(gamePath, "%s", BASE_PATH);',
+              '#if RETRO_PLATFORM == RETRO_ANDROID\n    sprintf(gamePath, "%s", getDocumentsPath());\n#else\n    sprintf(gamePath, "%s", BASE_PATH);\n#endif'
+          )
+          with open(path2, 'w') as f: f.write(c)
+          print('RetroEngine.cpp patched for Android data path')
           PYEOF
 
       - name: Build SDL2 for Android
