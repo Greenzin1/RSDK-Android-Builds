@@ -92,7 +92,7 @@ jobs:
           #include <SDL.h>
           const char *getDocumentsPath();
           const char *getResourcesPath();
-          void android_setKeyState(int scancode, int pressed);
+          void nativeSetKeyState(int scancode, int pressed);
           #endif
           H
           cat > RSDKv2/androidHelpers.cpp << 'C'
@@ -113,7 +113,7 @@ jobs:
               if (!resPath[0]) return "/sdcard/RSDK/v2/";
               return resPath;
           }
-          void android_setKeyState(int scancode, int pressed) {
+          extern "C" void Java_com_rsdkmodding_rsdkv2_RSDKv2_nativeSetKeyState(JNIEnv *env, jclass cls, jint scancode, jint pressed) {
               int numkeys = 0;
               const Uint8 *state = SDL_GetKeyboardState(&numkeys);
               if (scancode >= 0 && scancode < numkeys) {
@@ -331,7 +331,7 @@ jobs:
               private GamePadOverlay overlay;
 
               static { System.loadLibrary("RSDKv2"); }
-              private static native void android_setKeyState(int scancode, int pressed);
+              private static native void nativeSetKeyState(int scancode, int pressed);
 
               private static final int SCAN_UP = 82;
               private static final int SCAN_DOWN = 81;
@@ -443,8 +443,8 @@ jobs:
                       case ZONE_START: scancode = SCAN_RETURN; break;
                       default: return;
                   }
-                  if (pressed) android_setKeyState(scancode, 1);
-                  else android_setKeyState(scancode, 0);
+                  if (pressed) nativeSetKeyState(scancode, 1);
+                  else nativeSetKeyState(scancode, 0);
               }
 
               @Override
