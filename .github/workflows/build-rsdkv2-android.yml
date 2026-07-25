@@ -89,6 +89,7 @@ jobs:
           cat > RSDKv2/androidHelpers.hpp << 'H'
           #ifndef ANDROIDHELPERS_HPP
           #define ANDROIDHELPERS_HPP
+          #include <SDL.h>
           const char *getDocumentsPath();
           const char *getResourcesPath();
           #endif
@@ -144,24 +145,33 @@ jobs:
           with open(path2) as f: c = f.read()
           c = c.replace(
               '#else\n    StrCopy(dest, BASE_PATH);\n    StrAdd(dest, Engine.dataFile);\n#endif\n    CheckBinFile(dest);',
-              '#elif RETRO_PLATFORM == RETRO_ANDROID\n    StrCopy(dest, getDocumentsPath());\n    StrAdd(dest, Engine.dataFile);\n#else\n    StrCopy(dest, BASE_PATH);\n    StrAdd(dest, Engine.dataFile);\n#endif\n    CheckBinFile(dest);'
+              '#elif RETRO_PLATFORM == RETRO_ANDROID\n    StrCopy(dest, getDocumentsPath());\n    StrAdd(dest, Engine.dataFile);\n    SDL_Log(\"[RSDK] Data path: %s\", dest);\n#else\n    StrCopy(dest, BASE_PATH);\n    StrAdd(dest, Engine.dataFile);\n#endif\n    SDL_Log(\"[RSDK] CheckBinFile result: %d\", CheckBinFile(dest));'
           )
           c = c.replace(
               'sprintf(gamePath, "%s", BASE_PATH);',
               '#if RETRO_PLATFORM == RETRO_ANDROID\n    sprintf(gamePath, "%s", getDocumentsPath());\n#else\n    sprintf(gamePath, "%s", BASE_PATH);\n#endif'
           )
+          # Patch LoadGameConfig result
+          c = c.replace(
+              'if (LoadGameConfig("Data/Game/GameConfig.bin")) {',
+              'bool gcResult = LoadGameConfig("Data/Game/GameConfig.bin"); SDL_Log("[RSDK] LoadGameConfig: %d", gcResult);\n    if (gcResult) {'
+          )
           with open(path2, 'w') as f: f.write(c)
           print('RetroEngine.cpp patched for Android data path')
 
-          # Patch Userdata.cpp to use getDocumentsPath() on Android for settings.ini
+          # Patch Userdata.cpp - gamePath and settings.ini
           path3 = 'RSDKv2/Userdata.cpp'
           with open(path3) as f: u = f.read()
+          u = u.replace(
+              'sprintf(gamePath, "%s", BASE_PATH);',
+              '#if RETRO_PLATFORM == RETRO_ANDROID\n    sprintf(gamePath, "%s", getDocumentsPath());\n#else\n    sprintf(gamePath, "%s", BASE_PATH);\n#endif'
+          )
           u = u.replace(
               '#elif RETRO_PLATFORM == RETRO_iOS\n    sprintf(buffer, "%s/settings.ini", getDocumentsPath());\n#else\n    sprintf(buffer, BASE_PATH"settings.ini");',
               '#elif RETRO_PLATFORM == RETRO_iOS\n    sprintf(buffer, "%s/settings.ini", getDocumentsPath());\n#elif RETRO_PLATFORM == RETRO_ANDROID\n    sprintf(buffer, "%s/settings.ini", getDocumentsPath());\n#else\n    sprintf(buffer, BASE_PATH"settings.ini");'
           )
           with open(path3, 'w') as f: f.write(u)
-          print('Userdata.cpp patched for Android settings path')
+          print('Userdata.cpp patched for Android gamePath + settings path')
 
           # Add androidHelpers.cpp to CMakeLists.txt source list
           cmake_path = 'CMakeLists.txt'
