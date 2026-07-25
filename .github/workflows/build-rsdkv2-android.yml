@@ -275,13 +275,14 @@ jobs:
               <uses-feature android:glEsVersion="0x00020000" />
               <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-              <application android:label="Sonic Nexus" android:hasCode="true">
+              <application android:label="Sonic Nexus" android:hasCode="true" android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
                   <activity android:name="com.rsdkmodding.rsdkv2.RSDKv2"
                       android:label="Sonic Nexus"
                       android:configChanges="orientation|keyboardHidden|screenSize|screenLayout|smallestScreenSize"
                       android:launchMode="singleInstance"
                       android:screenOrientation="sensorLandscape"
-                      android:exported="true">
+                      android:exported="true"
+                      android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
@@ -303,20 +304,71 @@ jobs:
 
           import android.Manifest;
           import android.content.pm.PackageManager;
+          import android.os.Build;
+          import android.os.Bundle;
           import android.os.Environment;
+          import android.view.MotionEvent;
+          import android.view.View;
+          import android.view.Window;
+          import android.view.WindowManager;
           import java.io.File;
           import org.libsdl.app.SDLActivity;
 
           public class RSDKv2 extends SDLActivity {
               private static final int PERMISSION_REQUEST = 1;
 
+              // SDL2 scancodes for key injection
+              private static final int SCAN_UP = 82;
+              private static final int SCAN_DOWN = 81;
+              private static final int SCAN_LEFT = 80;
+              private static final int SCAN_RIGHT = 79;
+              private static final int SCAN_A = 4;
+              private static final int SCAN_S = 22;
+              private static final int SCAN_D = 7;
+              private static final int SCAN_RETURN = 40;
+
+              // Track which zones are currently pressed
+              private boolean[] zonePressed = new boolean[12];
+              private static final int ZONE_UP = 0;
+              private static final int ZONE_DOWN = 1;
+              private static final int ZONE_LEFT = 2;
+              private static final int ZONE_RIGHT = 3;
+              private static final int ZONE_A = 4;
+              private static final int ZONE_B = 5;
+              private static final int ZONE_C = 6;
+              private static final int ZONE_START = 7;
+
               @Override
-              protected void onCreate(android.os.Bundle savedInstanceState) {
+              protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
+
+                  // Immersive fullscreen mode
+                  getWindow().getDecorView().setSystemUiVisibility(
+                      View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                      | View.SYSTEM_UI_FLAG_FULLSCREEN
+                      | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                      | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                      | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                      | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+
                   requestPermissions(new String[]{
                       Manifest.permission.READ_EXTERNAL_STORAGE,
                       Manifest.permission.WRITE_EXTERNAL_STORAGE
                   }, PERMISSION_REQUEST);
+              }
+
+              @Override
+              public void onWindowFocusChanged(boolean hasFocus) {
+                  super.onWindowFocusChanged(hasFocus);
+                  if (hasFocus) {
+                      getWindow().getDecorView().setSystemUiVisibility(
+                          View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                          | View.SYSTEM_UI_FLAG_FULLSCREEN
+                          | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                          | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                          | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                          | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+                  }
               }
 
               @Override
@@ -332,6 +384,89 @@ jobs:
               @Override
               protected String[] getLibraries() {
                   return new String[]{ "SDL2", "RSDKv2" };
+              }
+
+              private int getZone(float x, float y, int w, int h) {
+                  float nx = x / w;
+                  float ny = y / h;
+
+                  // Right side buttons (right 35% of screen)
+                  if (nx > 0.65f) {
+                      if (ny < 0.35f) return ZONE_B;
+                      if (ny < 0.65f) return ZONE_A;
+                      if (ny < 0.85f) return ZONE_C;
+                      return ZONE_START;
+                  }
+
+                  // Left side D-pad (left 55% of screen)
+                  float cx = 0.275f;
+                  float cy = 0.5f;
+                  float dx = nx - cx;
+                  float dy = ny - cy;
+
+                  if (Math.abs(dx) < 0.18f && Math.abs(dy) < 0.25f) {
+                      if (dy < -0.08f) return ZONE_UP;
+                      if (dy > 0.08f) return ZONE_DOWN;
+                      if (dx < -0.06f) return ZONE_LEFT;
+                      if (dx > 0.06f) return ZONE_RIGHT;
+                  }
+
+                  return -1;
+              }
+
+              private void setZone(int zone, boolean pressed) {
+                  if (zone < 0 || zone >= zonePressed.length) return;
+                  if (zonePressed[zone] == pressed) return;
+                  zonePressed[zone] = pressed;
+
+                  int scancode;
+                  switch (zone) {
+                      case ZONE_UP: scancode = SCAN_UP; break;
+                      case ZONE_DOWN: scancode = SCAN_DOWN; break;
+                      case ZONE_LEFT: scancode = SCAN_LEFT; break;
+                      case ZONE_RIGHT: scancode = SCAN_RIGHT; break;
+                      case ZONE_A: scancode = SCAN_A; break;
+                      case ZONE_B: scancode = SCAN_S; break;
+                      case ZONE_C: scancode = SCAN_D; break;
+                      case ZONE_START: scancode = SCAN_RETURN; break;
+                      default: return;
+                  }
+
+                  if (pressed) onNativeKeyDown(scancode);
+                  else onNativeKeyUp(scancode);
+              }
+
+              @Override
+              public boolean dispatchTouchEvent(MotionEvent event) {
+                  int action = event.getActionMasked();
+                  int w = getWidth();
+                  int h = getHeight();
+
+                  if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN) {
+                      int idx = event.getActionIndex();
+                      float x = event.getX(idx);
+                      float y = event.getY(idx);
+                      int zone = getZone(x, y, w, h);
+                      setZone(zone, true);
+                  } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_POINTER_UP) {
+                      int idx = event.getActionIndex();
+                      float x = event.getX(idx);
+                      float y = event.getY(idx);
+                      int zone = getZone(x, y, w, h);
+                      setZone(zone, false);
+                  } else if (action == MotionEvent.ACTION_MOVE) {
+                      // Update all tracked pointers
+                      boolean[] touched = new boolean[12];
+                      for (int i = 0; i < event.getPointerCount(); i++) {
+                          int zone = getZone(event.getX(i), event.getY(i), w, h);
+                          if (zone >= 0) touched[zone] = true;
+                      }
+                      for (int z = 0; z < 12; z++) {
+                          if (zonePressed[z] && !touched[z]) setZone(z, false);
+                      }
+                  }
+
+                  return super.dispatchTouchEvent(event);
               }
           }
           JAVA
