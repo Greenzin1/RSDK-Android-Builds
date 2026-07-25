@@ -165,6 +165,17 @@ jobs:
           )
           with open(path3, 'w') as f: f.write(u)
           print('Userdata.cpp patched for Android settings path')
+
+          # Add androidHelpers.cpp to CMakeLists.txt source list
+          cmake_path = 'CMakeLists.txt'
+          with open(cmake_path) as f: cm = f.read()
+          if 'androidHelpers.cpp' not in cm:
+              cm = cm.replace(
+                  'RSDKv2/fcaseopen.c',
+                  'RSDKv2/fcaseopen.c\n\tRSDKv2/androidHelpers.cpp'
+              )
+              with open(cmake_path, 'w') as f: f.write(cm)
+              print('Added androidHelpers.cpp to CMakeLists.txt')
           PYEOF
 
       - name: Apply RSDKv1 data format changes
