@@ -155,6 +155,16 @@ jobs:
           )
           with open(path2, 'w') as f: f.write(c)
           print('RetroEngine.cpp patched for Android data path')
+
+          # Patch Userdata.cpp to use getDocumentsPath() on Android for settings.ini
+          path3 = 'RSDKv2/Userdata.cpp'
+          with open(path3) as f: u = f.read()
+          u = u.replace(
+              '#elif RETRO_PLATFORM == RETRO_iOS\n    sprintf(buffer, "%s/settings.ini", getDocumentsPath());\n#else\n    sprintf(buffer, BASE_PATH"settings.ini");',
+              '#elif RETRO_PLATFORM == RETRO_iOS\n    sprintf(buffer, "%s/settings.ini", getDocumentsPath());\n#elif RETRO_PLATFORM == RETRO_ANDROID\n    sprintf(buffer, "%s/settings.ini", getDocumentsPath());\n#else\n    sprintf(buffer, BASE_PATH"settings.ini");'
+          )
+          with open(path3, 'w') as f: f.write(u)
+          print('Userdata.cpp patched for Android settings path')
           PYEOF
 
       - name: Apply RSDKv1 data format changes
