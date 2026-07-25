@@ -169,6 +169,30 @@ jobs:
           with open(path2, 'w') as f: f.write(c)
           print('RetroEngine.cpp patched for Android data path')
 
+          # Fix buffer overflows in RetroEngine.cpp (stage list and GameConfig)
+          with open(path2) as f: engine = f.read()
+
+          # Fix stage list folder/id/name overflow
+          engine = engine.replace(
+              '                // Read Stage Folder\n                FileRead(&fileBuffer, 1);\n                FileRead(&stageList[cat][s].folder, fileBuffer);\n                stageList[cat][s].folder[fileBuffer] = 0;\n\n                // Read Stage ID\n                FileRead(&fileBuffer, 1);\n                FileRead(&stageList[cat][s].id, fileBuffer);\n                stageList[cat][s].id[fileBuffer] = 0;\n\n                // Read Stage Name\n                FileRead(&fileBuffer, 1);\n                FileRead(&stageList[cat][s].name, fileBuffer);\n                stageList[cat][s].name[fileBuffer] = 0;',
+              '                // Read Stage Folder\n                FileRead(&fileBuffer, 1);\n                if (fileBuffer > 0x3F) fileBuffer = 0x3F;\n                FileRead(&stageList[cat][s].folder, fileBuffer);\n                stageList[cat][s].folder[fileBuffer] = 0;\n\n                // Read Stage ID\n                FileRead(&fileBuffer, 1);\n                if (fileBuffer > 0x3F) fileBuffer = 0x3F;\n                FileRead(&stageList[cat][s].id, fileBuffer);\n                stageList[cat][s].id[fileBuffer] = 0;\n\n                // Read Stage Name\n                FileRead(&fileBuffer, 1);\n                if (fileBuffer > 0x3F) fileBuffer = 0x3F;\n                FileRead(&stageList[cat][s].name, fileBuffer);\n                stageList[cat][s].name[fileBuffer] = 0;'
+          )
+
+          # Fix GameConfig reading overflow
+          engine = engine.replace(
+              '    if (LoadFile(filePath, &info)) {\n        FileRead(&fileBuffer, 1);\n        FileRead(GameWindowText, fileBuffer);\n        GameWindowText[fileBuffer] = 0;\n\n        FileRead(&fileBuffer, 1);\n        FileRead(&data, fileBuffer); // Load \'Data\'\n        data[fileBuffer] = 0;\n\n        FileRead(&fileBuffer, 1);\n        FileRead(GameDescriptionText, fileBuffer);\n        GameDescriptionText[fileBuffer] = 0;',
+              '    if (LoadFile(filePath, &info)) {\n        FileRead(&fileBuffer, 1);\n        if (fileBuffer > 0x3F) fileBuffer = 0x3F;\n        FileRead(GameWindowText, fileBuffer);\n        GameWindowText[fileBuffer] = 0;\n\n        FileRead(&fileBuffer, 1);\n        if (fileBuffer > 0x3F) fileBuffer = 0x3F;\n        FileRead(&data, fileBuffer); // Load \'Data\'\n        data[fileBuffer] = 0;\n\n        FileRead(&fileBuffer, 1);\n        if (fileBuffer > 0xFF) fileBuffer = 0xFF;\n        FileRead(GameDescriptionText, fileBuffer);\n        GameDescriptionText[fileBuffer] = 0;'
+          )
+
+          # Fix GlobalVariableNames overflow
+          engine = engine.replace(
+              '            // Read Variable Name\n            FileRead(&fileBuffer, 1);\n            FileRead(&GlobalVariableNames[v], fileBuffer);\n            GlobalVariableNames[v][fileBuffer] = 0;',
+              '            // Read Variable Name\n            FileRead(&fileBuffer, 1);\n            if (fileBuffer > 0x1F) fileBuffer = 0x1F;\n            FileRead(&GlobalVariableNames[v], fileBuffer);\n            GlobalVariableNames[v][fileBuffer] = 0;'
+          )
+
+          with open(path2, 'w') as f: f.write(engine)
+          print('Fixed buffer overflows in RetroEngine.cpp')
+
           # Patch Userdata.cpp - gamePath and settings.ini
           path3 = 'RSDKv2/Userdata.cpp'
           with open(path3) as f: u = f.read()
