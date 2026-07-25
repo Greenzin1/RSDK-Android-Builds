@@ -131,6 +131,11 @@ jobs:
               '#if RETRO_PLATFORM == RETRO_WIN || RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_iOS || RETRO_PLATFORM == RETRO_UWP || RETRO_PLATFORM == RETRO_ANDROID'
           )
           content = content.replace('#include <SDL2/SDL.h>', '#include <SDL.h>')
+          # Disable mod loader on Android (std::filesystem crashes on /)
+          content = content.replace(
+              '#if !RETRO_USE_ORIGINAL_CODE\n#undef RETRO_USE_MOD_LOADER\n#define RETRO_USE_MOD_LOADER (1)\n#endif',
+              '#if !RETRO_USE_ORIGINAL_CODE && RETRO_PLATFORM != RETRO_ANDROID\n#undef RETRO_USE_MOD_LOADER\n#define RETRO_USE_MOD_LOADER (1)\n#endif'
+          )
           with open(path, 'w') as f: f.write(content)
           print('RetroEngine.hpp patched for Android')
           PYEOF
