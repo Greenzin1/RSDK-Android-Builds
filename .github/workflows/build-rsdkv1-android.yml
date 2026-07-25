@@ -133,6 +133,15 @@ jobs:
           with open('RSDKv2/Drawing.cpp', 'w') as f: f.write(drawing)
           print('Fixed gameTitle buffer overflow in Drawing.cpp')
 
+          # Fix LoadActFile and LoadStageFile dest buffer overflow in Scene.cpp
+          with open('RSDKv2/Scene.cpp') as f: scene = f.read()
+          scene = scene.replace('int LoadActFile(const char *ext, int stageID, FileInfo *info) {\n    char dest[0x40];',
+                                'int LoadActFile(const char *ext, int stageID, FileInfo *info) {\n    char dest[0x100];')
+          scene = scene.replace('int LoadStageFile(const char *filePath, int stageID, FileInfo *info) {\n    char dest[0x40];',
+                                'int LoadStageFile(const char *filePath, int stageID, FileInfo *info) {\n    char dest[0x100];')
+          with open('RSDKv2/Scene.cpp', 'w') as f: f.write(scene)
+          print('Fixed dest buffer overflow in Scene.cpp (LoadActFile + LoadStageFile)')
+
           # Fix buffer overflow in RetroEngine.cpp stage list and GameConfig reading
           with open('RSDKv2/RetroEngine.cpp') as f: engine = f.read()
 

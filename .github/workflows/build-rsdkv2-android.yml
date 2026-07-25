@@ -150,6 +150,16 @@ jobs:
           with open(path, 'w') as f: f.write(content)
           print('RetroEngine.hpp patched for Android')
 
+          # Fix LoadActFile and LoadStageFile dest buffer overflow in Scene.cpp
+          scene_path = 'RSDKv2/Scene.cpp'
+          with open(scene_path) as f: scene = f.read()
+          scene = scene.replace('int LoadActFile(const char *ext, int stageID, FileInfo *info) {\n    char dest[0x40];',
+                                'int LoadActFile(const char *ext, int stageID, FileInfo *info) {\n    char dest[0x100];')
+          scene = scene.replace('int LoadStageFile(const char *filePath, int stageID, FileInfo *info) {\n    char dest[0x40];',
+                                'int LoadStageFile(const char *filePath, int stageID, FileInfo *info) {\n    char dest[0x100];')
+          with open(scene_path, 'w') as f: f.write(scene)
+          print('Fixed dest buffer overflow in Scene.cpp (LoadActFile + LoadStageFile)')
+
           # Patch RetroEngine.cpp to use getDocumentsPath() on Android for data file
           path2 = 'RSDKv2/RetroEngine.cpp'
           with open(path2) as f: c = f.read()
