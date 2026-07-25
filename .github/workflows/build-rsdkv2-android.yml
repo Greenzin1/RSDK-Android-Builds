@@ -463,8 +463,8 @@ jobs:
               private int getZone(float x, float y, int w, int h) {
                   float nx = x / w;
                   float ny = y / h;
-                  // ESC button (top-right corner)
-                  if (nx > 0.85f && ny < 0.12f) return ZONE_ESC;
+                  // ESC button (above START)
+                  if (nx > 0.55f && nx < 0.85f && ny > 0.75f && ny < 0.85f) return ZONE_ESC;
                   if (nx > 0.65f) {
                       if (ny < 0.35f) return ZONE_B;
                       if (ny < 0.65f) return ZONE_A;
@@ -624,13 +624,14 @@ jobs:
                       canvas.drawRoundRect(startRect, 20, 20, zonePressed[ZONE_START] ? btnPressedPaint : btnPaint);
                       canvas.drawText("START", startX, startY + 14, textPaint);
 
-                      // ESC button (top-right corner)
-                      float escX = w * 0.92f;
-                      float escY = h * 0.06f;
-                      float escRadius = Math.min(w, h) * 0.04f;
-                      canvas.drawCircle(escX, escY, escRadius, zonePressed[ZONE_ESC] ? btnPressedPaint : btnPaint);
-                      textPaint.setTextSize(20);
-                      canvas.drawText("ESC", escX, escY + 7, textPaint);
+                      float escX = w * 0.68f;
+                      float escY = h * 0.76f;
+                      float escW = btnRadius * 2.0f;
+                      float escH = btnRadius * 0.7f;
+                      RectF escRect = new RectF(escX - escW, escY - escH, escX + escW, escY + escH);
+                      canvas.drawRoundRect(escRect, 16, 16, zonePressed[ZONE_ESC] ? btnPressedPaint : btnPaint);
+                      textPaint.setTextSize(22);
+                      canvas.drawText("ESC", escX, escY + 8, textPaint);
                       textPaint.setTextSize(36);
                   }
               }
