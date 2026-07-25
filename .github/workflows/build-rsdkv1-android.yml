@@ -168,6 +168,28 @@ jobs:
           with open(path2, 'w') as f: f.write(c)
           print('LoadGameConfig debug logging added')
 
+          # Patch Reader.cpp - add debug logging to ParseVirtualFileSystem
+          path_r = 'RSDKv2/Reader.cpp'
+          with open(path_r) as f: r = f.read()
+          r = r.replace(
+              'if (StrComp(fullFilename, stringBuffer)) {\n            FileRead(&fileBuffer, 1);\n            fileOffset = fileBuffer;',
+              'SDL_Log(\"[RSDK] VFS dir[%d/%d]: looking for \\\"%%s\\\" found \\\"%%s\\\"\", i, dirCount, fullFilename, stringBuffer);\n            if (StrComp(fullFilename, stringBuffer)) {\n                SDL_Log(\"[RSDK] VFS dir match! offset=%%d\", fileOffset);\n                FileRead(&fileBuffer, 1);\n                fileOffset = fileBuffer;'
+          )
+          r = r.replace(
+              'if (StrComp(filename, stringBuffer)) {\n                i = 1;',
+              'SDL_Log(\"[RSDK] VFS file looking for \\\"%%s\\\" found \\\"%%s\\\"\", filename, stringBuffer);\n                if (StrComp(filename, stringBuffer)) {\n                    i = 1;'
+          )
+          r = r.replace(
+              'bool CheckBinFile(const char *filePath) {',
+              'bool CheckBinFile(const char *filePath) {\n    SDL_Log(\"[RSDK] CheckBinFile: %%s\", filePath);'
+          )
+          r = r.replace(
+              'bool LoadFile(const char *filePath, FileInfo *fileInfo) {',
+              'bool LoadFile(const char *filePath, FileInfo *fileInfo) {\n    SDL_Log(\"[RSDK] LoadFile: %%s\", filePath);'
+          )
+          with open(path_r, 'w') as f: f.write(r)
+          print('Reader.cpp debug logging added')
+
           # Patch Userdata.cpp - gamePath and settings.ini
           path3 = 'RSDKv2/Userdata.cpp'
           with open(path3) as f: u = f.read()
