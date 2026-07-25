@@ -49,8 +49,8 @@ jobs:
               ${SDL2_DIR}/include/SDL2
           )
 
-          add_library(SDL2 STATIC IMPORTED)
-          set_target_properties(SDL2 PROPERTIES IMPORTED_LOCATION ${SDL2_DIR}/lib/${ANDROID_ABI}/libSDL2.a)
+          add_library(SDL2 SHARED IMPORTED)
+          set_target_properties(SDL2 PROPERTIES IMPORTED_LOCATION ${SDL2_DIR}/lib/${ANDROID_ABI}/libSDL2.so)
           target_include_directories(SDL2 INTERFACE ${SDL2_DIR}/include ${SDL2_DIR}/include/SDL2)
 
           # Pre-built static libs from android-deps
@@ -170,12 +170,12 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE=$NDK_PATH/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=${{ env.ABI }} \
             -DANDROID_PLATFORM=android-${{ env.ANDROID_API }} \
-            -DSDL_STATIC=ON -DSDL_SHARED=OFF -DSDL_TEST=OFF -DSDL_TESTS=OFF \
+            -DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TEST=OFF -DSDL_TESTS=OFF \
             -DCMAKE_BUILD_TYPE=Release
           cmake --build . -j$(nproc)
           DEP=${{ github.workspace }}/RSDKv2-Decompilation/android-deps/SDL2
           mkdir -p $DEP/lib/${{ env.ABI }}
-          cp libSDL2.a $DEP/lib/${{ env.ABI }}/
+          cp libSDL2.so $DEP/lib/${{ env.ABI }}/
           cp -r include $DEP/
           find . -name "SDL_config.h" -exec cp {} $DEP/include/SDL2/ \;
           ls $DEP/include/SDL2/SDL_config.h
@@ -235,6 +235,11 @@ jobs:
           SO=$(find $WORK/build -name "libRSDKv*.so" | head -1)
           if [ -z "$SO" ]; then echo "ERROR: .so not found"; find $WORK/build -name "*.so"; exit 1; fi
           cp "$SO" $APK/lib/${{ env.ABI }}/libRSDKv1.so
+
+          # Copy libSDL2.so
+          SDL2SO=$(find $WORK/android-deps/SDL2 -name "libSDL2.so" | head -1)
+          if [ -z "$SDL2SO" ]; then echo "ERROR: libSDL2.so not found"; find $WORK/android-deps -name "*.so"; exit 1; fi
+          cp "$SDL2SO" $APK/lib/${{ env.ABI }}/
 
           cat > $APK/AndroidManifest.xml << 'XML'
           <?xml version="1.0" encoding="utf-8"?>
