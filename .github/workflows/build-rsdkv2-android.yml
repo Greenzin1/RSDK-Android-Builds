@@ -97,6 +97,7 @@ jobs:
           H
           cat > RSDKv2/androidHelpers.cpp << 'C'
           #include <string.h>
+          #include <jni.h>
           #include "RetroEngine.hpp"
           #include <SDL.h>
           static char docsPath[512] = {0};
