@@ -127,6 +127,12 @@ jobs:
         working-directory: RSDKv2-Decompilation
         run: |
           python3 << 'PYEOF'
+          # Fix gameTitle buffer overflow in Drawing.cpp
+          with open('RSDKv2/Drawing.cpp') as f: drawing = f.read()
+          drawing = drawing.replace('char gameTitle[0x40];', 'char gameTitle[0x100];')
+          with open('RSDKv2/Drawing.cpp', 'w') as f: f.write(drawing)
+          print('Fixed gameTitle buffer overflow in Drawing.cpp')
+
           path = 'RSDKv2/RetroEngine.hpp'
           with open(path) as f: content = f.read()
           # Fix platform default to detect Android
