@@ -98,6 +98,9 @@ jobs:
           cat > RSDKv2/androidHelpers.cpp << 'C'
           #include <string.h>
           #include <jni.h>
+          #include <stdio.h>
+          #include <sys/stat.h>
+          #include <dirent.h>
           #include "RetroEngine.hpp"
           #include <SDL.h>
           static char docsPath[512] = {0};
@@ -120,6 +123,107 @@ jobs:
               if (scancode >= 0 && scancode < numkeys) {
                   ((Uint8*)state)[scancode] = pressed ? 1 : 0;
               }
+          }
+
+          static void mkdirs_p(const char *path) {
+              char tmp[1024];
+              snprintf(tmp, sizeof(tmp), "%s", path);
+              for (char *p = tmp + 1; *p; p++) {
+                  if (*p == '/') { *p = 0; mkdir(tmp, 0755); *p = '/'; }
+              }
+              mkdir(tmp, 0755);
+          }
+
+          extern "C" jboolean Java_com_rsdkmodding_rsdkv1_RSDKv1_nativeExtractDataBin(JNIEnv *env, jclass cls) {
+              const char *docs = getDocumentsPath();
+              char binPath[1024];
+              snprintf(binPath, sizeof(binPath), "%sData.bin", docs);
+
+              FILE *bin = fopen(binPath, "rb");
+              if (!bin) return JNI_FALSE;
+
+              fseek(bin, 0, SEEK_END);
+              long binSize = ftell(bin);
+              fseek(bin, 0, SEEK_SET);
+              if (binSize < 5) { fclose(bin); return JNI_FALSE; }
+
+              uint8_t header[5];
+              fread(header, 1, 5, bin);
+
+              uint32_t headerSize = header[0] | (header[1] << 8) | (header[2] << 16) | (header[3] << 24);
+              uint8_t dirCount = header[4];
+
+              if (headerSize > binSize || dirCount > 200) {
+                  fclose(bin);
+                  return JNI_FALSE;
+              }
+
+              typedef struct { char name[256]; int32_t offset; } DirEnt;
+              DirEnt dirs[256];
+
+              long pos = 5;
+              for (int d = 0; d < dirCount; d++) {
+                  uint8_t nlen;
+                  fread(&nlen, 1, 1, bin);
+                  fread(dirs[d].name, 1, nlen, bin);
+                  dirs[d].name[nlen] = 0;
+                  uint8_t offBuf[4];
+                  fread(offBuf, 1, 4, bin);
+                  dirs[d].offset = offBuf[0] | (offBuf[1] << 8) | (offBuf[2] << 16) | (offBuf[3] << 24);
+                  pos = ftell(bin);
+              }
+
+              for (int d = 0; d < dirCount; d++) {
+                  int32_t endOffset;
+                  if (d + 1 < dirCount) endOffset = dirs[d + 1].offset;
+                  else endOffset = binSize - headerSize;
+
+                  int32_t cur = dirs[d].offset;
+                  while (cur < endOffset) {
+                      fseek(bin, headerSize + cur, SEEK_SET);
+
+                      uint8_t nameLen;
+                      fread(&nameLen, 1, 1, bin);
+                      char fname[256];
+                      fread(fname, 1, nameLen, bin);
+                      fname[nameLen] = 0;
+
+                      uint32_t szBuf;
+                      fread(&szBuf, 1, 4, bin);
+                      uint32_t fileSize = szBuf;
+
+                      char fullPath[1024];
+                      snprintf(fullPath, sizeof(fullPath), "%s%s%s", docs, dirs[d].name, fname);
+
+                      char *lastSlash = strrchr(fullPath, '/');
+                      if (lastSlash) {
+                          *lastSlash = 0;
+                          mkdirs_p(fullPath);
+                          *lastSlash = '/';
+                      }
+
+                      FILE *out = fopen(fullPath, "wb");
+                      if (out) {
+                          uint8_t buf[4096];
+                          uint32_t remaining = fileSize;
+                          while (remaining > 0) {
+                              int toRead = remaining > sizeof(buf) ? sizeof(buf) : remaining;
+                              int got = fread(buf, 1, toRead, bin);
+                              if (got <= 0) break;
+                              fwrite(buf, 1, got, out);
+                              remaining -= got;
+                          }
+                          fclose(out);
+                      }
+                      cur += 1 + nameLen + 4 + fileSize;
+                  }
+              }
+              fclose(bin);
+
+              char bakPath[1024];
+              snprintf(bakPath, sizeof(bakPath), "%sData.bin.extracted", docs);
+              rename(binPath, bakPath);
+              return JNI_TRUE;
           }
           C
 
@@ -260,8 +364,8 @@ jobs:
               'SDL_Log(\"[RSDK] VFS file looking for \\\"%s\\\" found \\\"%s\\\"\", filename, stringBuffer);\n                if (StrComp(filename, stringBuffer)) {\n                    i = 1;'
           )
           r = r.replace(
-              'bool CheckBinFile(const char *filePath) {',
-              'bool CheckBinFile(const char *filePath) {\n    SDL_Log(\"[RSDK] CheckBinFile: %s\", filePath);'
+              'bool CheckBinFile(const char *filePath) {\n    SDL_Log("[RSDK] CheckBinFile: %s", filePath);',
+              'bool CheckBinFile(const char *filePath) {\n    SDL_Log("[RSDK] CheckBinFile: %s", filePath);\n#if RETRO_PLATFORM == RETRO_ANDROID\n    Engine.UseBinFile = false;\n    Engine.usingDataFileStore = false;\n    return false;\n#endif'
           )
           r = r.replace(
               'bool LoadFile(const char *filePath, FileInfo *fileInfo) {',
@@ -455,6 +559,7 @@ jobs:
 
               static { System.loadLibrary("RSDKv1"); }
               private static native void nativeSetKeyState(int scancode, int pressed);
+              private static native boolean nativeExtractDataBin();
 
               private static final int SCAN_UP = 82;
               private static final int SCAN_DOWN = 81;
@@ -479,6 +584,10 @@ jobs:
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
+                  requestPermissions();
+                  String docs = Environment.getExternalStorageDirectory().getAbsolutePath() + "/RSDK/v1/";
+                  new File(docs).mkdirs();
+                  try { nativeExtractDataBin(); } catch (Exception e) {}
                   super.onCreate(savedInstanceState);
                   getWindow().getDecorView().setSystemUiVisibility(
                       View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
