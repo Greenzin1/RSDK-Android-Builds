@@ -584,7 +584,6 @@ jobs:
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
-                  requestPermissions();
                   String docs = Environment.getExternalStorageDirectory().getAbsolutePath() + "/RSDK/v1/";
                   new File(docs).mkdirs();
                   try { nativeExtractDataBin(); } catch (Exception e) {}
