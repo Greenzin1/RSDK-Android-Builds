@@ -373,8 +373,8 @@ jobs:
           )
           # On Android, when reading from filesystem (not Data.bin), prepend documents path
           r = r.replace(
-              'StrCopy(fileInfo->fileName, filePathBuf);\n        StrCopy(fileName, filePathBuf);\n        CFileHandle = fOpen(fileInfo->fileName, \"rb\");',
-              '#if RETRO_PLATFORM == RETRO_ANDROID\n        char fullFsPath[0x200];\n        snprintf(fullFsPath, sizeof(fullFsPath), \"%s%s\", getDocumentsPath(), filePathBuf);\n        StrCopy(fileInfo->fileName, fullFsPath);\n        StrCopy(fileName, fullFsPath);\n        SDL_Log(\"[RSDK] Filesystem path: %s\", fullFsPath);\n#else\n        StrCopy(fileInfo->fileName, filePathBuf);\n        StrCopy(fileName, filePathBuf);\n#endif\n        CFileHandle = fOpen(fileInfo->fileName, \"rb\");'
+              '    } else {\n        StrCopy(fileInfo->fileName, filePathBuf);\n        StrCopy(fileName, filePathBuf);\n        CFileHandle = fOpen(fileInfo->fileName, "rb");',
+              '    } else {\n#if RETRO_PLATFORM == RETRO_ANDROID\n        char fullFsPath[0x200];\n        snprintf(fullFsPath, sizeof(fullFsPath), "%s%s", getDocumentsPath(), filePathBuf);\n        StrCopy(fileInfo->fileName, fullFsPath);\n        StrCopy(fileName, fullFsPath);\n        SDL_Log("[RSDK] Filesystem path: %s", fullFsPath);\n#else\n        StrCopy(fileInfo->fileName, filePathBuf);\n        StrCopy(fileName, filePathBuf);\n#endif\n        CFileHandle = fOpen(fileInfo->fileName, "rb");'
           )
           with open(path_r, 'w') as f: f.write(r)
           print('Reader.cpp patched for Android filesystem paths')
